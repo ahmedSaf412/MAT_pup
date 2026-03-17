@@ -1,0 +1,184 @@
+.trainPage {
+  padding: var(--space-lg);
+  min-height: calc(100vh - var(--navbar-height));
+}
+
+.trainLayout {
+  display: flex;
+  gap: var(--space-lg);
+  max-width: 1400px;
+  margin: 0 auto;
+  height: calc(100vh - var(--navbar-height) - var(--space-2xl));
+}
+
+.videoSection {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.panelSection {
+  flex: 1;
+  min-width: 300px;
+  max-width: 380px;
+}
+
+.videoHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.videoTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.sessionInfo {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.timerBadge,
+.scoreBadge {
+  padding: 6px 14px;
+  border-radius: var(--radius-xl);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.timerBadge {
+  background: rgba(0, 212, 255, 0.15);
+  color: var(--accent-blue);
+}
+
+.scoreBadge {
+  background: rgba(255, 215, 64, 0.15);
+  color: var(--accent-yellow);
+}
+
+/* Video Container */
+.videoContainer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-glass);
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.videoPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  color: var(--text-secondary);
+}
+
+.placeholderIcon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+.cameraError {
+  color: var(--accent-red);
+  font-size: 0.85rem;
+  max-width: 300px;
+  text-align: center;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+.moveSelector {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.moveLabel {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.moveSelect {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  min-width: 220px;
+}
+
+.moveSelect option {
+  background: var(--bg-secondary);
+}
+
+.controlButtons {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* Reference Hint */
+.referenceHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.referenceHint a {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+@media (max-width: 1024px) {
+  .trainLayout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .panelSection {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .moveSelector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .controlButtons {
+    justify-content: center;
+  }
+}

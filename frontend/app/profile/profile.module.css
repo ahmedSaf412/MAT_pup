@@ -1,0 +1,105 @@
+.profilePage {
+  padding: var(--space-2xl) 0;
+  animation: fadeIn 0.5s ease;
+}
+
+.title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: var(--space-xl);
+}
+
+.profileLayout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: var(--space-xl);
+}
+
+/* Profile Card */
+.profileCard {
+  text-align: center;
+  padding: var(--space-2xl);
+  height: fit-content;
+}
+
+.avatarLarge {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 auto var(--space-md);
+}
+
+.profileName {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.profileEmail {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: 2px;
+  margin-bottom: var(--space-md);
+}
+
+.profileBadges {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: var(--space-lg);
+}
+
+.profileMeta {
+  border-top: 1px solid var(--border-glass);
+  padding-top: var(--space-lg);
+}
+
+.metaItem {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-sm) 0;
+}
+
+.metaLabel {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.metaValue {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Edit Card */
+.editCard {
+  padding: var(--space-2xl);
+}
+
+.editTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: var(--space-xl);
+}
+
+.savedMsg {
+  background: rgba(0, 230, 118, 0.1);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  margin-bottom: var(--space-lg);
+  text-align: center;
+  animation: fadeInUp 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .profileLayout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,164 @@
+.panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.moveSection {
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+
+.moveName {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+/* Confidence Bar */
+.confidenceBar {
+  margin-top: var(--space-md);
+}
+
+.confidenceLabel {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.confidenceValue {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.barTrack {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease, background 0.5s ease;
+}
+
+/* Corrections */
+.correctionsSection {
+  flex: 1;
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+.noCorrections {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+.correctionsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.correctionItem {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  border-left: 3px solid var(--border-glass);
+}
+
+.correctionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 6px;
+}
+
+.jointName {
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.severityBadge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.correctionMsg {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Coach Angle Data */
+.angleData {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border-glass);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'Courier New', monospace;
+}
+
+.angleDiff {
+  color: var(--accent-orange);
+  font-weight: 700;
+}
+
+/* Angles Section */
+.anglesSection {
+  padding: var(--space-lg);
+  border-top: 1px solid var(--border-glass);
+}
+
+.anglesGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.angleItem {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+}
+
+.angleJoint {
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.angleValue {
+  color: var(--accent-blue);
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}

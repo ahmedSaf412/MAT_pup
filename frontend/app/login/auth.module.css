@@ -1,0 +1,176 @@
+.authPage {
+  min-height: calc(100vh - var(--navbar-height));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.authCard {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.authHeader {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.authIcon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.authTitle {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: var(--space-xs);
+}
+
+.authSubtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.authForm {
+  margin-bottom: var(--space-lg);
+}
+
+.authSubmit {
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+}
+
+.errorMsg {
+  background: rgba(255, 82, 82, 0.1);
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  margin-bottom: var(--space-lg);
+  text-align: center;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-glass);
+}
+
+.divider span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.demoButtons {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.demoBtn {
+  flex: 1;
+}
+
+.authSwitch {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.authSwitch a {
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+/* Role Selector (Register) */
+.roleSelector {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.roleCard {
+  flex: 1;
+  padding: var(--space-lg);
+  background: var(--bg-glass);
+  border: 2px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.roleCard:hover {
+  border-color: var(--accent-blue);
+}
+
+.roleCard.active {
+  border-color: var(--accent-blue);
+  background: rgba(0, 212, 255, 0.08);
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.roleCardIcon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: var(--space-sm);
+}
+
+.roleCardTitle {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.roleCardDesc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.beltSelect {
+  width: 100%;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.beltSelect option {
+  background: var(--bg-secondary);
+}
+
+@media (max-width: 480px) {
+  .authCard {
+    padding: var(--space-xl);
+  }
+
+  .demoButtons {
+    flex-direction: column;
+  }
+
+  .roleSelector {
+    flex-direction: column;
+  }
+}
