@@ -53,8 +53,9 @@ martial-arts-trainer/
 ## ⚡ Getting Started
 
 ### Prerequisites
-- Python 3.10+ with a virtual environment (`cvEnv` recommended)
+- Python 3.10+ with a virtual environment (`cvEnv` recommended) i was using 3.12.7
 - Node.js LTS (v18+)
+- ->https://nodejs.org/en/download -->scroll down to Windows Installer (.msi)
 - Git
 
 ---
