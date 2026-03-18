@@ -112,6 +112,19 @@ Evaluation metrics: **Accuracy**, **F1-Score**, **Latency**, **Model Size**
 
 ---
 
+## 📥 Model Downloads
+
+Trained model files (`.keras`) are **not committed to this repo** (too large for Git). Download them separately and place them in `backend/app/models/Results/`:
+
+| Model | File | Download |
+|-------|------|----------|
+| Bi-LSTM (132 coords) | `Bi-LSTM_Coords132.keras` | [Google Drive *(link TBD)*](#) |
+| Bi-LSTM (14 angles) | `Bi-LSTM_Angles14.keras` | [Google Drive *(link TBD)*](#) |
+
+> **After downloading**, drop the `.keras` files into `backend/app/models/Results/` — the API will load them from there.
+
+---
+
 ## 🔒 Security Notes
 
 The following are **gitignored** and must never be committed:
