@@ -1,3 +1,7 @@
+# Keep large data local - download from README links
+app/data/
+backend/app/data/
+
 # Node
 node_modules/
 .pnp
