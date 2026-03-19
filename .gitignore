@@ -1,6 +1,7 @@
-# Keep large data local - download from README links
+# Keep large data local - download from README links drive or hugging face
 app/data/
 backend/app/data/
+
 
 # Node
 node_modules/
