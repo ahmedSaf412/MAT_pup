@@ -1,3 +1,4 @@
+/* frontend/app/train/train.module.css*/
 .trainPage {
   padding: var(--space-lg);
   min-height: calc(100vh - var(--navbar-height));
@@ -41,7 +42,8 @@
 }
 
 .timerBadge,
-.scoreBadge {
+.scoreBadge,
+.bufferBadge {
   padding: 6px 14px;
   border-radius: var(--radius-xl);
   font-size: 0.85rem;
@@ -56,6 +58,12 @@
 .scoreBadge {
   background: rgba(255, 215, 64, 0.15);
   color: var(--accent-yellow);
+}
+
+.bufferBadge {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  margin-left: 10px;
 }
 
 /* Video Container */
@@ -156,12 +164,58 @@
   font-weight: 600;
 }
 
+/* Detection History */
+.detectionHistory {
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.detectionHistory h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.historyItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.historyMove {
+  font-weight: 600;
+  color: var(--accent-green);
+}
+
+.historyConfidence {
+  color: var(--text-secondary);
+}
+
+.historyTime {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Responsive */
 @media (max-width: 1024px) {
   .trainLayout {
     flex-direction: column;
     height: auto;
   }
-
   .panelSection {
     max-width: 100%;
   }
@@ -172,13 +226,49 @@
     flex-direction: column;
     align-items: stretch;
   }
-
   .moveSelector {
     flex-direction: column;
     align-items: stretch;
   }
-
   .controlButtons {
     justify-content: center;
   }
 }
+
+.bufferBadge {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  margin-left: 10px;
+}
+.detectionHistory {
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+}
+.detectionHistory h3 {
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.historyItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+.historyMove { font-weight: 600; color: var(--accent-green); }
+.historyConfidence { color: var(--text-secondary); }
+.historyTime { font-size: 0.8rem; color: var(--text-muted); }

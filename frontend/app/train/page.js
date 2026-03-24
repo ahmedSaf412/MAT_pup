@@ -1,146 +1,257 @@
 'use client';
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import PoseCanvas from '../components/PoseCanvas';
 import CorrectionPanel from '../components/CorrectionPanel';
+import api from '../services/api';
+import { extract14Angles } from '../utils/angleCalculator';
 import styles from './train.module.css';
 
+// Constants
 const AVAILABLE_MOVES = [
   { id: 'free', name: 'Free Practice (Auto Detect)' },
-  { id: 'front_kick', name: 'Front Kick (Mae Geri)' },
-  { id: 'roundhouse_kick', name: 'Roundhouse Kick (Mawashi Geri)' },
-  { id: 'side_kick', name: 'Side Kick (Yoko Geri)' },
-  { id: 'reverse_punch', name: 'Reverse Punch (Gyaku Zuki)' },
-  { id: 'rising_block', name: 'Rising Block (Age Uke)' },
-  { id: 'front_stance', name: 'Front Stance (Zenkutsu Dachi)' },
+  { id: 'mae_geri', name: 'Front Kick (Mae Geri)' },
+  { id: 'gyaku_zuki', name: 'Reverse Punch (Gyaku Zuki)' },
+  { id: 'gedan_barai', name: 'Down Block (Gedan Barai)' },
 ];
 
-// Mock correction data that cycles for demo
-const MOCK_CORRECTIONS_LIST = [
-  {
-    move: 'Front Kick',
-    confidence: 0.92,
-    corrections: [
-      { joint: 'left_knee', message: 'Raise your left knee higher — aim for waist height', severity: 'warning' },
-      { joint: 'right_hand', message: 'Keep your guard hand near your chin', severity: 'info' },
-    ],
-  },
-  {
-    move: 'Front Kick',
-    confidence: 0.88,
-    corrections: [
-      { joint: 'left_knee', message: 'Good knee height! Keep it consistent', severity: 'info' },
-    ],
-  },
-  {
-    move: 'Roundhouse Kick',
-    confidence: 0.85,
-    corrections: [
-      { joint: 'right_hip', message: 'Rotate your hips more through the kick', severity: 'warning' },
-      { joint: 'left_ankle', message: 'Pivot your support foot — heel toward target', severity: 'error' },
-      { joint: 'right_hand', message: 'Keep guard up during the kick', severity: 'warning' },
-    ],
-  },
-  {
-    move: 'Roundhouse Kick',
-    confidence: 0.91,
-    corrections: [
-      { joint: 'right_hip', message: 'Better hip rotation! Almost perfect', severity: 'info' },
-    ],
-  },
-];
+// 🔥 Global singleton to prevent MediaPipe "File exists" crash in Next.js
+let globalPoseInstance = null;
 
 export default function TrainPage() {
-  const { user, isAuthenticated, isCoach } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const videoRef = useRef(null);
+  const fileInputRef = useRef(null);
+  
+  // State
   const [cameraActive, setCameraActive] = useState(false);
+  const [isVideoUploaded, setIsVideoUploaded] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
+  const [isRecordingRep, setIsRecordingRep] = useState(false);
+  const [repCount, setRepCount] = useState(0);
   const [selectedMove, setSelectedMove] = useState('free');
   const [landmarks, setLandmarks] = useState(null);
-  const [currentCorrection, setCurrentCorrection] = useState({
-    move: '', confidence: 0, corrections: [],
-  });
+  const [currentCorrection, setCurrentCorrection] = useState({ move: '', confidence: 0, corrections: [] });
   const [timer, setTimer] = useState(0);
   const [score, setScore] = useState(0);
-  const timerRef = useRef(null);
-  const correctionIndexRef = useRef(0);
   const [cameraError, setCameraError] = useState('');
+  const [detectionHistory, setDetectionHistory] = useState([]);
+  
+  // Refs for callbacks (Prevents stale state in MediaPipe onResults)
+  const timerRef = useRef(null);
+  const frameBufferRef = useRef([]);
+  const lastPredictionRef = useRef(null);
+  const mediaPipeRef = useRef(null);
+  const isRecordingRef = useRef(false); // 🔥 Crucial for MediaPipe loop
+  const repCountRef = useRef(0);
+  const isMediaPlayingRef = useRef(false); // 🔥 ADD THIS TO FIX THE LOOP
 
+  // Sync state to refs for the MediaPipe callback
+  useEffect(() => { isRecordingRef.current = isRecordingRep; }, [isRecordingRep]);
+  useEffect(() => { repCountRef.current = repCount; }, [repCount]);
+
+  // Initialize MediaPipe (Crash-Proof)
   useEffect(() => {
-    if (!isAuthenticated) router.push('/login');
-    if (isCoach) router.push('/coach');
-  }, [isAuthenticated, isCoach, router]);
+    const initMediaPipe = async () => {
+      try {
+        if (!globalPoseInstance) {
+          const { Pose } = await import('@mediapipe/pose');
+          globalPoseInstance = new Pose({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+          });
+          
+          globalPoseInstance.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+        }
 
-  // Start camera
-  const startCamera = useCallback(async () => {
+        // Always re-bind the onResults to get fresh scope, using Refs!
+        globalPoseInstance.onResults((results) => {
+          if (results.poseLandmarks) {
+            const lmArray = Array.from(results.poseLandmarks);
+            setLandmarks(lmArray);
+            
+            // Use the Ref here, NOT the state variable
+            if (isRecordingRef.current && lmArray.length === 33) {
+              const angles = extract14Angles(lmArray);
+              frameBufferRef.current.push({ angles });
+              
+              if (frameBufferRef.current.length === 30) {
+                setIsRecordingRep(false); // Stop recording UI
+                isRecordingRef.current = false; // Stop recording Logic
+                sendToClassifier([...frameBufferRef.current]);
+                setRepCount(prev => prev + 1);
+              }
+            }
+          }
+        });
+        
+        mediaPipeRef.current = globalPoseInstance;
+      } catch (error) {
+        console.error('MediaPipe init error:', error);
+        setCameraError('Failed to load AI pose detection. Try refreshing.');
+      }
+    };
+    
+    initMediaPipe();
+  }, []);
+
+  // Frame processing loop
+  // 🔥 FIXED: Frame processing loop
+  const processFrame = async () => {
+    // If the ref says we are stopped, kill the loop immediately
+    if (!isMediaPlayingRef.current) return;
+
+    const video = videoRef.current;
+    if (video && video.readyState >= 2 && mediaPipeRef.current && !video.paused) {
+      try {
+        await mediaPipeRef.current.send({ image: video });
+      } catch (err) {
+        console.warn("MediaPipe dropped a frame:", err);
+      }
+    }
+    
+    // Continuously loop as long as the ref is true
+    requestAnimationFrame(processFrame);
+  };
+
+  // 📹 Start live camera
+  const startCamera = async () => {
     try {
       setCameraError('');
+      setIsVideoUploaded(false);
+      const video = videoRef.current;
+      if (!video) return;
+      
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const droidCam = devices.find(d => d.kind === 'videoinput' && d.label.toLowerCase().includes('droidcam'));
+      
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, facingMode: 'user' },
+        video: { 
+          width: 640, height: 480, facingMode: 'user',
+          deviceId: droidCam?.deviceId ? { exact: droidCam.deviceId } : undefined
+        },
         audio: false,
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setCameraActive(true);
-      }
+      
+      video.srcObject = stream;
+      await video.play();
+      setCameraActive(true);
+      // 🔥 Tell the loop to run, then start it
+      isMediaPlayingRef.current = true; 
+      requestAnimationFrame(processFrame);
     } catch (err) {
       console.error('Camera error:', err);
-      setCameraError('Could not access camera. Please allow camera permissions.');
+      setCameraError('Could not access camera.');
     }
-  }, []);
+  };
 
-  // Stop camera
-  const stopCamera = useCallback(() => {
-    if (videoRef.current?.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach((t) => t.stop());
-      videoRef.current.srcObject = null;
+  // 📁 Handle Video Upload
+  const handleVideoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      stopCamera(); // Clear any existing stream
+      const videoUrl = URL.createObjectURL(file);
+      const video = videoRef.current;
+      
+      video.srcObject = null;
+      video.src = videoUrl;
+      video.loop = true; // Loop the video for easier practicing
+      await video.play();
+      
+      setCameraActive(false);
+      setIsVideoUploaded(true);
+      setCameraError('');
+      // 🔥 Tell the loop to run, then start it
+      isMediaPlayingRef.current = true;
+      
+      requestAnimationFrame(processFrame);
+    } catch (err) {
+      console.error('Video upload error:', err);
+      setCameraError('Failed to load video.');
     }
-    setCameraActive(false);
-  }, []);
+  };
 
-  // Start training session
+  // Session Management
   const startTraining = useCallback(() => {
     setIsTraining(true);
     setTimer(0);
     setScore(0);
-    correctionIndexRef.current = 0;
-
-    // Timer
-    timerRef.current = setInterval(() => {
-      setTimer((t) => t + 1);
-    }, 1000);
-
-    // Simulate AI corrections every 3 seconds (demo)
-    const correctionInterval = setInterval(() => {
-      const idx = correctionIndexRef.current % MOCK_CORRECTIONS_LIST.length;
-      setCurrentCorrection(MOCK_CORRECTIONS_LIST[idx]);
-      setScore((s) => Math.min(100, s + Math.round(Math.random() * 5 + 2)));
-
-      // Generate mock landmarks for skeleton display
-      const mockLandmarks = Array.from({ length: 33 }, (_, i) => ({
-        x: 0.3 + Math.random() * 0.4,
-        y: 0.1 + (i / 33) * 0.8 + Math.random() * 0.05,
-        z: Math.random() * 0.2 - 0.1,
-        visibility: 0.8 + Math.random() * 0.2,
-      }));
-      setLandmarks(mockLandmarks);
-
-      correctionIndexRef.current++;
-    }, 3000);
-
-    return () => clearInterval(correctionInterval);
+    setRepCount(0);
+    setDetectionHistory([]);
+    frameBufferRef.current = [];
+    lastPredictionRef.current = null;
+    timerRef.current = setInterval(() => setTimer(t => t + 1), 1000);
   }, []);
 
-  // Stop training session
+  const recordNextRep = () => {
+    if (repCount >= 3) return;
+    frameBufferRef.current = [];
+    setIsRecordingRep(true); // Triggers MediaPipe to start saving 30 frames
+  };
+
+  const sendToClassifier = async (frames) => {
+    try {
+      const response = await api.post('/api/classify', {
+        frames: frames,
+        feature_set: 'angles14',
+        model: 'Bi-LSTM'
+      });
+      
+      const { move, confidence, inference_time_ms } = response.data;
+      
+      setCurrentCorrection({
+        move: move,
+        confidence: confidence,
+        corrections: [
+          { joint: 'system', message: `✅ ${move} (${(confidence*100).toFixed(1)}%)`, severity: confidence > 0.9 ? 'info' : 'warning' },
+          { joint: 'performance', message: `⚡ ${inference_time_ms.toFixed(1)}ms`, severity: 'info' }
+        ]
+      });
+      
+      setScore(s => s + Math.round(confidence * 100));
+      setDetectionHistory(prev => [{ move, confidence, timestamp: new Date().toLocaleTimeString() }, ...prev].slice(0, 10));
+      
+    } catch (error) {
+      console.error('Classification error:', error);
+      setCurrentCorrection({
+        move: 'Error',
+        confidence: 0,
+        corrections: [{ joint: 'system', message: `Backend error: ${error.message}`, severity: 'error' }]
+      });
+    }
+  };
+
   const stopTraining = useCallback(() => {
     setIsTraining(false);
+    setIsRecordingRep(false);
     if (timerRef.current) clearInterval(timerRef.current);
+    frameBufferRef.current = [];
   }, []);
 
+  const stopCamera = useCallback(() => {
+    isMediaPlayingRef.current = false; // 🔥 Instantly kill the frame loop
+    if (videoRef.current) {
+      if (videoRef.current.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(t => t.stop());
+      }
+      videoRef.current.srcObject = null;
+      videoRef.current.src = "";
+    }
+    setCameraActive(false);
+    setIsVideoUploaded(false);
+    stopTraining();
+  }, [stopTraining]);
+
+  // Cleanup
   useEffect(() => {
     return () => {
       stopCamera();
@@ -148,115 +259,89 @@ export default function TrainPage() {
     };
   }, [stopCamera]);
 
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  if (!user) return <div className="loading-container"><div className="spinner" /></div>;
+  if (!user) return null;
 
   return (
     <div className={styles.trainPage}>
       <div className={styles.trainLayout}>
-        {/* Left: Video + Canvas */}
         <div className={styles.videoSection}>
           <div className={styles.videoHeader}>
-            <h1 className={styles.videoTitle}>🎯 Training Mode</h1>
+            <h1 className={styles.videoTitle}>🎯 AI Training Mode</h1>
             {isTraining && (
               <div className={styles.sessionInfo}>
-                <span className={styles.timerBadge}>⏱️ {formatTime(timer)}</span>
+                <span className={styles.timerBadge}>⏱️ {Math.floor(timer/60)}:{(timer%60).toString().padStart(2,'0')}</span>
                 <span className={styles.scoreBadge}>⭐ {score}pts</span>
               </div>
             )}
           </div>
 
           <div className={styles.videoContainer}>
-            <video
-              ref={videoRef}
-              className={styles.video}
-              playsInline
-              muted
-            />
-            {cameraActive && landmarks && (
-              <PoseCanvas
-                landmarks={landmarks}
-                corrections={currentCorrection.corrections}
-                width={640}
-                height={480}
-              />
+            <video ref={videoRef} className={styles.video} playsInline muted={!isVideoUploaded} controls={isVideoUploaded} />
+            {(cameraActive || isVideoUploaded) && landmarks && (
+              <PoseCanvas landmarks={landmarks} corrections={currentCorrection.corrections} width={640} height={480} />
             )}
-            {!cameraActive && (
+            {!cameraActive && !isVideoUploaded && (
               <div className={styles.videoPlaceholder}>
                 <div className={styles.placeholderIcon}>📹</div>
-                <p>Click &quot;Start Camera&quot; to begin</p>
+                <p>Start Camera or Upload a Video to begin</p>
                 {cameraError && <p className={styles.cameraError}>{cameraError}</p>}
               </div>
             )}
           </div>
 
-          {/* Controls */}
           <div className={styles.controls}>
             <div className={styles.moveSelector}>
-              <label htmlFor="move-select" className={styles.moveLabel}>Practice Move:</label>
-              <select
-                id="move-select"
-                className={styles.moveSelect}
-                value={selectedMove}
-                onChange={(e) => setSelectedMove(e.target.value)}
-              >
-                {AVAILABLE_MOVES.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
+              <select className={styles.moveSelect} value={selectedMove} onChange={(e) => setSelectedMove(e.target.value)}>
+                {AVAILABLE_MOVES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
-
+            
             <div className={styles.controlButtons}>
-              {!cameraActive ? (
-                <button className="btn btn-primary" onClick={startCamera} id="start-camera-btn">
-                  📹 Start Camera
-                </button>
+              {/* Media Inputs */}
+              {!cameraActive && !isVideoUploaded ? (
+                <>
+                  <button className="btn btn-primary" onClick={startCamera}>📹 Start Camera</button>
+                  <input type="file" accept="video/mp4,video/webm,video/ogg" ref={fileInputRef} style={{ display: 'none' }} onChange={handleVideoUpload} />
+                  <button className="btn btn-secondary" onClick={() => fileInputRef.current.click()}>📁 Upload Video</button>
+                </>
               ) : (
-                <button className="btn btn-ghost" onClick={stopCamera} id="stop-camera-btn">
-                  ⏹ Stop Camera
-                </button>
+                <button className="btn btn-ghost" onClick={stopCamera}>⏹ Stop Media</button>
               )}
-
-              {cameraActive && !isTraining && (
-                <button className="btn btn-secondary" onClick={startTraining} id="start-train-btn">
-                  ▶ Start Training
-                </button>
+              
+              {/* Training Controls */}
+              {(cameraActive || isVideoUploaded) && !isTraining && (
+                <button className="btn btn-secondary" onClick={startTraining}>▶ Start Session</button>
               )}
-
+              
               {isTraining && (
-                <button className="btn btn-ghost" onClick={stopTraining} id="stop-train-btn"
-                  style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
-                  ⏹ End Session
-                </button>
+                <>
+                  <button className="btn btn-primary" onClick={recordNextRep} disabled={isRecordingRep || repCount >= 3}>
+                    {isRecordingRep ? "🔴 Recording 30 Frames..." : `🥋 Record Rep ${repCount + 1}/3`}
+                  </button>
+                  <button className="btn btn-ghost" onClick={stopTraining} style={{borderColor:'var(--accent-red)',color:'var(--accent-red)'}}>⏹ End Session</button>
+                </>
               )}
             </div>
           </div>
 
-          {/* Reference Video hint */}
-          {selectedMove !== 'free' && (
-            <div className={styles.referenceHint}>
-              <span>📖</span>
-              <span>
-                Practicing: <strong>{AVAILABLE_MOVES.find((m) => m.id === selectedMove)?.name}</strong>
-                — Watch the reference in the <a href="/moves">Move Library</a>
-              </span>
+          {/* History */}
+          {detectionHistory.length > 0 && (
+            <div className={styles.detectionHistory}>
+              <h3>📊 Recent Detections</h3>
+              <div className={styles.historyList}>
+                {detectionHistory.map((det, idx) => (
+                  <div key={idx} className={styles.historyItem}>
+                    <span className={styles.historyMove}>{det.move}</span>
+                    <span className={styles.historyConfidence}>{(det.confidence*100).toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Right: Correction Panel */}
         <div className={styles.panelSection}>
-          <CorrectionPanel
-            moveName={currentCorrection.move}
-            confidence={currentCorrection.confidence}
-            corrections={currentCorrection.corrections}
-            isCoach={false}
-          />
+          <CorrectionPanel moveName={currentCorrection.move} confidence={currentCorrection.confidence} corrections={currentCorrection.corrections} isCoach={false} />
         </div>
       </div>
     </div>

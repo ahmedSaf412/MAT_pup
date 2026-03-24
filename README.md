@@ -1,140 +1,178 @@
-# 🥋 AI Martial Arts Trainer
+# Setup Guide for Martial Arts AI Trainer
 
-An AI-powered karate training platform that classifies and corrects trainee movements in real time, guiding them through structured kata courses aligned with belt progression.
-
----
-
-## 📌 Project Overview
-
-The AI Martial Arts Trainer is a senior graduation project that combines computer vision, deep learning (Bi-LSTM, CNN-LSTM, ST-GCN + Attention), and a full-stack web platform to help karate trainees learn and perfect their katas.
-
-### Current Phase — Phase 1: Classification & Core Setup
-- **AI Model Pipeline**: Training and evaluating movement classifiers on karate movements (e.g., `maegeri` front-kick, `gyaku-zuki` reverse-punch).
-- **Backend API**: FastAPI server exposing REST endpoints for movement classification sessions.
-- **Frontend**: Next.js application (scaffold ready), to be wired to the backend.
-- **Goal**: Given a video/pose sequence of a trainee performing a core kata movement, classify what movement it is.
-
-### Upcoming — Phase 2: Structured Kata Courses
-Belt-based course system where trainees:
-1. Select a course (belt level → kata, e.g., **Heian Nidan** as the starting point).
-2. Watch warmup guidance for the kata.
-3. Reach the **core movement segment** → AI classifies the performed technique.
-4. Receive correction feedback based on the classification result.
-
-**Starting kata: Heian Nidan** — chosen because it features `maegeri` and `gyaku-zuki`, which are well-suited for initial detection and classification.
-
----
-
-## 🗂️ Project Structure
-
-```
-martial-arts-trainer/
-├── backend/                  # FastAPI Python backend
-│   ├── app/
-│   │   ├── main.py           # App entry point & CORS config
-│   │   ├── models/           # SQLAlchemy ORM models
-│   │   │   ├── user.py
-│   │   │   ├── session.py
-│   │   │   └── move.py
-│   │   └── data/             # Training data (gitignored if large)
-│   ├── requirements.txt
-│   └── .env                  # Local secrets — DO NOT COMMIT
-├── frontend/                 # Next.js frontend
-│   ├── app/
-│   ├── public/
-│   └── package.json
-├── docs/                     # Project documentation
-├── presentation.html         # Project presentation
-└── README.md
+## **1. Clone the Repository**
+```bash
+git clone https://github.com/mohamedaboelenin617-web/martial-arts-trainer.git
+cd martial-arts-trainer
 ```
 
 ---
 
-## ⚡ Getting Started
+## **2. Frontend Setup (Next.js - Node.js)**
 
 ### Prerequisites
-- Python 3.10+ with a virtual environment (`cvEnv` recommended) i was using 3.12.7
-- Node.js LTS (v18+)
-- ->https://nodejs.org/en/download -->scroll down to Windows Installer (.msi)
-- Git
+- **Node.js** (v16 or higher)
+- **npm** or **yarn**
 
----
-
-### 🔧 Backend Setup (FastAPI)
-
-```bash
-# 1. Activate your Python environment
-# Windows:
-.\cvEnv\Scripts\activate
-
-# 2. Install Python dependencies
-cd backend
-pip install -r requirements.txt
-
-# 3. Create your local .env (never commit this)
-# backend/.env
-DATABASE_URL=sqlite:///./martial_arts.db
-SECRET_KEY=your-secret-key-here
-FRONTEND_URL=http://localhost:3000
-
-# 4. Run the development server
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Backend will be available at: **http://127.0.0.1:8000**  
-API docs (Swagger): **http://127.0.0.1:8000/docs**
-
----
-
-### 🎨 Frontend Setup (Next.js)
-
+### Installation Steps
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+# or
+yarn install
+
+# Create environment file (if needed)
+cp .env.example .env.local  # If .env.example exists, otherwise create .env.local manually
+
+# Start development server
+npm run dev
+# or
+yarn dev
+```
+
+**Frontend will be available at:** `http://localhost:3000`
+
+### Available Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm start` - Start production server
+
+### Frontend Dependencies
+- **Next.js** 16.1.6
+- **React** 19.2.3
+- **MediaPipe** (Pose detection)
+- **Chart.js** (Data visualization)
+- **Axios** (HTTP client)
+
+---
+
+## **3. Backend Setup (Python/FastAPI)**
+
+### Prerequisites
+- **Python 3.8+**
+- **pip** (Python package manager)
+- **Virtual Environment** (recommended)
+
+### Installation Steps
+```bash
+cd backend
+
+# Create a virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create environment file
+touch .env
+# Add your configuration variables to .env file
+# Example: DATABASE_URL, SECRET_KEY, etc.
+
+# Run migrations (if applicable)
+alembic upgrade head
+
+# Start development server
+uvicorn app.main:app --reload
+```
+
+**Backend will be available at:** `http://localhost:8000`
+**API docs:** `http://localhost:8000/docs`
+
+### Backend Dependencies
+- **FastAPI** 0.110.0 - Web framework
+- **Uvicorn** 0.27.1 - ASGI server
+- **SQLAlchemy** 2.0.27 - ORM
+- **Alembic** 1.13.1 - Database migrations
+- **Pydantic** 2.6.1 - Data validation
+- **NumPy** 1.26.4 - Numerical computing
+- **Scikit-learn** 1.4.0 - Machine learning
+- **Python-dotenv** 1.0.1 - Environment variables
+- **WebSockets** 12.0 - Real-time communication
+
+---
+
+## **4. Environment Configuration**
+
+### Backend (.env file)
+```bash
+# Database Configuration
+DATABASE_URL=sqlite:///./martial_arts.db
+
+# JWT Configuration
+SECRET_KEY=your-secret-key-here
+ALGORITHM=HS256
+
+# CORS Settings (if needed)
+ALLOWED_ORIGINS=http://localhost:3000
+
+# API Configuration
+API_PORT=8000
+```
+
+### Frontend (.env.local file - if needed)
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+---
+
+## **5. Complete Startup Process**
+
+### Terminal 1 - Backend
+```bash
+cd backend
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+uvicorn app.main:app --reload
+```
+
+### Terminal 2 - Frontend
+```bash
+cd frontend
 npm run dev
 ```
 
-Frontend will be available at: **http://localhost:3000**
+### Verify Everything Works
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8000`
+- Swagger Docs: `http://localhost:8000/docs`
 
 ---
 
-## 🧠 AI Models
+## **6. Troubleshooting**
 
-Models are trained in Jupyter notebooks under `backend/app/models/`:
+### Frontend Issues
+- **Port 3000 already in use:** `npm run dev -- -p 3001`
+- **Module not found:** Delete `node_modules` and `package-lock.json`, then reinstall
 
-| Model | Notebook | Status |
-|-------|----------|--------|
-| Bi-LSTM | `01_BiLSTM_Tournament.ipynb` | ✅ In progress |
-| CNN-LSTM | *(upcoming)* | 🔲 Planned |
-| ST-GCN + Attention | *(upcoming)* | 🔲 Planned |
-
-Evaluation metrics: **Accuracy**, **F1-Score**, **Latency**, **Model Size**
-
----
-
-## 📥 Model Downloads
-
-Trained model files (`.keras`) are **not committed to this repo** (too large for Git). Download them separately and place them in `backend/app/models/Results/`:
-
-| Model | File | Download |
-|-------|------|----------|
-| Bi-LSTM (132 coords) | `Bi-LSTM_Coords132.keras` | [Google Drive *(link TBD)*](#) |
-| Bi-LSTM (14 angles) | `Bi-LSTM_Angles14.keras` | [Google Drive *(link TBD)*](#) |
-
-> **After downloading**, drop the `.keras` files into `backend/app/models/Results/` — the API will load them from there.
+### Backend Issues
+- **Port 8000 already in use:** `uvicorn app.main:app --reload --port 8001`
+- **Database errors:** Check `.env` DATABASE_URL configuration
+- **Virtual environment issues:** Deactivate and recreate: `deactivate` then `python -m venv venv`
 
 ---
 
-## 🔒 Security Notes
-
-The following are **gitignored** and must never be committed:
-- `backend/.env` — contains `SECRET_KEY` and database URL
-- `*.db` / `*.sqlite` — local SQLite database files
-- `venv/`, `cvEnv/`, `node_modules/` — local dependency folders
+## **📁 Project Structure**
+```
+martial-arts-trainer/
+├── frontend/          (Next.js React app)
+│   ├── app/          (App router)
+│   ├── package.json
+│   └── public/
+├── backend/          (FastAPI Python app)
+│   ├── app/          (Main application)
+│   ├── requirements.txt
+│   └── alembic/      (Database migrations)
+└── docs/
+```
 
 ---
 
-## 🤝 Team
-
-Senior Graduation Project — Computer Science, 2026  
-Branch: `Safwat_branch`
+That's it! Your teammate should follow these steps in order and the project will be running. 🎉
