@@ -1,0 +1,4 @@
+timestamp,model,feature_set,n_features,n_clips,accuracy,f1_weighted,inference_ms,model_size_mb,train_time_s,epochs_ran
+2026-03-18 13:37,Bi-LSTM,Angles14,14,396,0.95,0.9499,7.38,3.92,30.4,42
+2026-03-18 13:38,Bi-LSTM,Coords132,132,396,0.9125,0.9124,6.15,5.37,27.3,53
+2026-03-18 13:58,ST-GCN+Attention,Coords132,132,396,0.4,0.264,3.26,0.28,14.6,19

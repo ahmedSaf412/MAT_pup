@@ -1,3 +1,8 @@
+# Keep large data local - download from README links drive or hugging face
+app/data/
+backend/app/data/
+
+
 # Node
 node_modules/
 .pnp
@@ -35,6 +40,7 @@ MANIFEST
 
 # Environments
 .env
+.env*
 .env.local
 .env.development.local
 .env.test.local
@@ -44,6 +50,24 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# ML Models (download separately — see README)
+*.keras
+*.h5
+*.pkl
+*.pt
+*.pth
+
+# Raw video / animation data
+*.mov
+*.mp4
+*.avi
+*.mkv
 
 # Logs
 logs
