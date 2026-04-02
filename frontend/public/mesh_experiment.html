@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Pose Detection with ml5.js</title>
+  <!-- Load p5.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <!-- Load ml5.js -->
+  <script src="https://unpkg.com/ml5@rc/dist/ml5.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+      font-family: sans-serif;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.5rem;
+    }
+    canvas {
+      box-shadow: 0 0 20px rgba(0,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">Loading Models & Video...</div>
+  
+  <script>
+    let video;
+    let bodyPose;
+    let connections;
+    let poses = [];
+    let angle = 0;
+    let modelLoaded = false;
+    let videoLoaded = false;
+
+    function preload() {
+      // Initialize BlazePose model for 3D pose estimation
+      bodyPose = ml5.bodyPose("BlazePose");
+    }
+
+    function gotPoses(results) {
+      poses = results;
+    }
+
+    function setup() {
+      let cnv = createCanvas(800, 600, WEBGL);
+      
+      // We will try to load a sample video from your backend.
+      // If you are running locally on Next.js, this will hit your backend's animation endpoint.
+      // E.g., Reverse Punch Front
+      video = createVideo("http://localhost:8000/api/video/gyaku_zuki/front", videoReady);
+      video.hide(); // Hide the raw video DOM element
+
+      connections = bodyPose.getSkeleton();
+    }
+
+    function videoReady() {
+      videoLoaded = true;
+      video.loop();
+      video.volume(0); // Mute to ensure auto-play allowed
+      bodyPose.detectStart(video, gotPoses);
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    function draw() {
+      if (!videoLoaded) return;
+      
+      // Base styling
+      background(10, 15, 30);
+      
+      // Camera controls natively in p5 WEBGL
+      orbitControl();
+
+      // Scale to make the pose visible (ml5 3d points are normalized roughly)
+      scale(height / 2);
+      
+      // Auto-rotation around Y axis
+      angle += 0.01;
+      
+      if (poses.length > 0) {
+        let pose = poses[0];
+
+        // Shift origin and rotate
+        push();
+        // The pose points from BlazePose are often normalized [0,1] or pixel coords
+        // We might need to adjust translation based on the raw ML5 output
+        // Usually, 3D keypoints are around 0,0,0
+        rotateY(angle);
+        translate(0, 0, 0);
+
+        // Draw connections (Bones)
+        for (let i = 0; i < connections.length; i++) {
+          let connection = connections[i];
+          let a = connection[0];
+          let b = connection[1];
+          let keyPointA = pose.keypoints3D[a];
+          let keyPointB = pose.keypoints3D[b];
+
+          // Proceed if confidence is good
+          if (keyPointA && keyPointB && keyPointA.confidence > 0.1 && keyPointB.confidence > 0.1) {
+            stroke(0, 212, 255); // Cyan
+            strokeWeight(3);
+            beginShape();
+            // Blazepose 3D coords are typically normalized, but depending on ml5 version 
+            // they might be in meters or arbitrary scale. Let's multiply by a factor if needed.
+            // (Assuming they are mostly roughly -1 to 1)
+            vertex(keyPointA.x, keyPointA.y, keyPointA.z);
+            vertex(keyPointB.x, keyPointB.y, keyPointB.z);
+            endShape();
+          }
+        }
+
+        // Draw joints
+        for (let i = 0; i < pose.keypoints3D.length; i++) {
+          let keypoint = pose.keypoints3D[i];
+          if (keypoint && keypoint.confidence > 0.1) {
+            push();
+            translate(keypoint.x, keypoint.y, keypoint.z);
+            stroke(255, 0, 255); // Magenta
+            strokeWeight(1);
+            fill(255, 0, 255, 150);
+            rotateZ(angle * 2);
+            box(0.04);
+            pop();
+          }
+        }
+        pop();
+      }
+
+      // Draw a grid / ground floor
+      push();
+      translate(0, 0.8, 0); // push ground down
+      rotateX(PI / 2);
+      stroke(255, 255, 255, 50);
+      strokeWeight(1);
+      fill(0, 50, 100, 30);
+      rectMode(CENTER);
+      rect(0, 0, 4, 4);
+      // Grid lines
+      for(let i = -2; i <= 2; i+=0.5) {
+        line(-2, i, 2, i);
+        line(i, -2, i, 2);
+      }
+      pop();
+    }
+  </script>
+</body>
+</html>

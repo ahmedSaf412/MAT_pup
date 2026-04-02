@@ -1,53 +1,70 @@
 'use client';
 
 import { useState } from 'react';
+import MoveSkeletonPreview from '../components/MoveSkeletonPreview';
 import styles from './moves.module.css';
 
+// slug → backend video key (null = no reference video on server)
 const MOVES_DATA = [
   {
-    id: 1, name: 'Front Kick', japanese: 'Mae Geri', art: 'Karate', belt: 'white',
+    id: 1, slug: 'mae_geri', name: 'Front Kick', japanese: 'Mae Geri',
+    art: 'Karate', belt: 'white',
     description: 'A fundamental kick executed by lifting the knee and snapping the foot forward. Strike with the ball of the foot.',
     tips: ['Chamber knee to waist height first', 'Strike with ball of foot', 'Retract quickly after extension', 'Keep guard hands up'],
     keyJoints: ['knee', 'hip', 'ankle'],
   },
   {
-    id: 2, name: 'Roundhouse Kick', japanese: 'Mawashi Geri', art: 'Karate', belt: 'yellow',
+    id: 2, slug: null, name: 'Roundhouse Kick', japanese: 'Mawashi Geri',
+    art: 'Karate', belt: 'yellow',
     description: 'A circular kick that comes from the side. Pivot on the support foot and rotate hips fully through the kick.',
     tips: ['Pivot support foot — heel toward target', 'Rotate hips fully', 'Keep guard up throughout', 'Snap the kick, don\'t push'],
     keyJoints: ['hip', 'knee', 'ankle', 'support_foot'],
   },
   {
-    id: 3, name: 'Side Kick', japanese: 'Yoko Geri', art: 'Karate', belt: 'yellow',
+    id: 3, slug: null, name: 'Side Kick', japanese: 'Yoko Geri',
+    art: 'Karate', belt: 'yellow',
     description: 'A powerful linear kick to the side. Chamber the knee, then thrust the heel outward while leaning the body away.',
     tips: ['Chamber knee high', 'Strike with the heel or blade of foot', 'Lean torso away for balance', 'Lock the knee at full extension'],
     keyJoints: ['hip', 'knee', 'ankle'],
   },
   {
-    id: 4, name: 'Reverse Punch', japanese: 'Gyaku Zuki', art: 'Karate', belt: 'white',
+    id: 4, slug: 'gyaku_zuki', name: 'Reverse Punch', japanese: 'Gyaku Zuki',
+    art: 'Karate', belt: 'white',
     description: 'The most powerful hand technique in karate. The rear hand punches forward while rotating the hip.',
     tips: ['Rotate hips into the punch', 'Rotate fist at the end (palm down)', 'Keep other hand in guard', 'Drive from the rear leg'],
     keyJoints: ['shoulder', 'elbow', 'wrist', 'hip'],
   },
   {
-    id: 5, name: 'Rising Block', japanese: 'Age Uke', art: 'Karate', belt: 'white',
+    id: 5, slug: 'gedan_barai', name: 'Down Block', japanese: 'Gedan Barai',
+    art: 'Karate', belt: 'white',
+    description: 'A sweeping downward block that deflects low attacks. The blocking arm sweeps diagonally across the body while the other hand chambers.',
+    tips: ['Start from opposite shoulder', 'Sweep diagonally downward', 'Chamber other hand at hip (hikite)', 'Snap the block — don\'t push'],
+    keyJoints: ['shoulder', 'elbow', 'wrist'],
+  },
+  {
+    id: 6, slug: null, name: 'Rising Block', japanese: 'Age Uke',
+    art: 'Karate', belt: 'white',
     description: 'An overhead defensive technique to block attacks coming downward. The forearm rises up to deflect.',
     tips: ['Start from opposite hip', 'Forearm ends above and in front of head', 'Rotate forearm outward', 'Keep other hand pulled to hip (hikite)'],
     keyJoints: ['shoulder', 'elbow', 'wrist'],
   },
   {
-    id: 6, name: 'Front Stance', japanese: 'Zenkutsu Dachi', art: 'Karate', belt: 'white',
+    id: 7, slug: null, name: 'Front Stance', japanese: 'Zenkutsu Dachi',
+    art: 'Karate', belt: 'white',
     description: 'The fundamental forward-weighted stance. Strong foundation for most karate techniques.',
     tips: ['Front knee bent over toes', 'Back leg straight', 'Feet shoulder-width apart', 'Weight 60% front, 40% back'],
     keyJoints: ['hip', 'knee', 'ankle'],
   },
   {
-    id: 7, name: 'Knife Hand Strike', japanese: 'Shuto Uchi', art: 'Karate', belt: 'green',
-    description: 'An open-hand strike using the edge of the hand (knife edge). Used for strikes to the neck, ribs, or collarbone.',
+    id: 8, slug: null, name: 'Knife Hand Strike', japanese: 'Shuto Uchi',
+    art: 'Karate', belt: 'green',
+    description: 'An open-hand strike using the edge of the hand. Used for strikes to the neck, ribs, or collarbone.',
     tips: ['Keep fingers tight together', 'Strike with the meaty edge of hand', 'Pull other hand to ear level', 'Rotate hips into strike'],
     keyJoints: ['shoulder', 'elbow', 'wrist'],
   },
   {
-    id: 8, name: 'Back Kick', japanese: 'Ushiro Geri', art: 'Karate', belt: 'blue',
+    id: 9, slug: null, name: 'Back Kick', japanese: 'Ushiro Geri',
+    art: 'Karate', belt: 'blue',
     description: 'A powerful rear kick. Turn and look over your shoulder, then thrust the heel backward at the target.',
     tips: ['Look before you kick', 'Thrust heel straight back', 'Keep body tight and compact', 'Retract immediately after'],
     keyJoints: ['hip', 'knee', 'ankle'],
@@ -61,14 +78,13 @@ const BELT_COLORS = {
 
 export default function MovesPage() {
   const [selectedMove, setSelectedMove] = useState(null);
-  const [filterArt, setFilterArt] = useState('all');
-  const [filterBelt, setFilterBelt] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filterBelt, setFilterBelt]     = useState('all');
+  const [searchTerm, setSearchTerm]     = useState('');
 
   const filteredMoves = MOVES_DATA.filter((m) => {
-    if (filterArt !== 'all' && m.art.toLowerCase() !== filterArt) return false;
     if (filterBelt !== 'all' && m.belt !== filterBelt) return false;
-    if (searchTerm && !m.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && !m.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !m.japanese.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   });
 
@@ -85,7 +101,7 @@ export default function MovesPage() {
           <input
             type="text"
             className="form-input"
-            placeholder="Search moves..."
+            placeholder="Search moves…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             id="move-search"
@@ -124,7 +140,7 @@ export default function MovesPage() {
               </div>
               <h3 className={styles.moveCardName}>{move.name}</h3>
               <p className={styles.moveCardJapanese}>{move.japanese}</p>
-              <p className={styles.moveCardDesc}>{move.description.slice(0, 80)}...</p>
+              <p className={styles.moveCardDesc}>{move.description.slice(0, 80)}…</p>
               <div className={styles.moveCardFooter}>
                 <span className="badge badge-blue">{move.art}</span>
                 <span className={styles.moveCardLink}>View Details →</span>
@@ -137,7 +153,11 @@ export default function MovesPage() {
         {selectedMove && (
           <div className={styles.modalOverlay} onClick={() => setSelectedMove(null)}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <button className={styles.modalClose} onClick={() => setSelectedMove(null)} id="close-move-modal">✕</button>
+              <button
+                className={styles.modalClose}
+                onClick={() => setSelectedMove(null)}
+                id="close-move-modal"
+              >✕</button>
 
               <div className={styles.modalHeader}>
                 <div>
@@ -158,13 +178,12 @@ export default function MovesPage() {
                 </div>
               </div>
 
-              {/* Video placeholder */}
+              {/* AI Skeleton Preview + Reference Video */}
               <div className={styles.videoPreview}>
-                <div className={styles.videoPlaceholder}>
-                  <span className={styles.playIcon}>▶</span>
-                  <p>Reference Video</p>
-                  <p className={styles.videoHint}>Connect to move catalog API for video playback</p>
-                </div>
+                <MoveSkeletonPreview
+                  move={{ id: selectedMove.slug, name: selectedMove.name }}
+                  defaultTab="skeleton"
+                />
               </div>
 
               <div className={styles.modalBody}>

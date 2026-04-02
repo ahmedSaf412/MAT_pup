@@ -1,4 +1,6 @@
-/* frontend/app/train/train.module.css*/
+/* frontend/app/train/train.module.css */
+
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
 .trainPage {
   padding: var(--space-lg);
   min-height: calc(100vh - var(--navbar-height));
@@ -9,7 +11,9 @@
   gap: var(--space-lg);
   max-width: 1400px;
   margin: 0 auto;
-  height: calc(100vh - var(--navbar-height) - var(--space-2xl));
+  /* use min-height so extra results don't cause the video to shrink */
+  min-height: calc(100vh - var(--navbar-height) - var(--space-2xl));
+  align-items: flex-start;
 }
 
 .videoSection {
@@ -17,14 +21,22 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  /* Never let this section grow past the viewport — keeps camera visible */
+  overflow: hidden;
+  position: sticky;
+  top: var(--space-lg);
+  max-height: calc(100vh - var(--navbar-height) - var(--space-2xl));
 }
 
 .panelSection {
   flex: 1;
   min-width: 300px;
-  max-width: 380px;
+  max-width: 420px;
+  overflow-y: auto;
+  max-height: calc(100vh - var(--navbar-height) - var(--space-2xl));
 }
 
+/* ─── Header ─────────────────────────────────────────────────────────────── */
 .videoHeader {
   display: flex;
   align-items: center;
@@ -39,6 +51,7 @@
 .sessionInfo {
   display: flex;
   gap: var(--space-md);
+  align-items: center;
 }
 
 .timerBadge,
@@ -61,16 +74,52 @@
 }
 
 .bufferBadge {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-primary);
-  margin-left: 10px;
+  background: rgba(226, 75, 74, 0.15);
+  color: var(--accent-red);
+  animation: pulseOpacity 0.8s ease-in-out infinite;
 }
 
-/* Video Container */
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* ─── Move reference card ─────────────────────────────────────────────────── */
+.moveReferenceCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: rgba(0, 212, 255, 0.06);
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: var(--radius-md);
+}
+
+.moveReferenceEmoji {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.moveReferenceName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.moveReferenceDesc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ─── Video container ─────────────────────────────────────────────────────── */
 .videoContainer {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  flex: 1;
+  min-height: 300px;
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -107,7 +156,61 @@
   text-align: center;
 }
 
-/* Controls */
+/* ─── Recording overlay ───────────────────────────────────────────────────── */
+.recordingOverlay {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg);
+  padding: 12px 20px;
+  min-width: 220px;
+}
+
+.recordingPulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  animation: pulseOpacity 0.7s ease-in-out infinite;
+  margin-bottom: 2px;
+}
+
+.recordingLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.progressBarWrap {
+  width: 180px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 2px;
+  transition: width 0.05s linear;
+}
+
+.progressText {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Controls ────────────────────────────────────────────────────────────── */
 .controls {
   display: flex;
   align-items: center;
@@ -134,7 +237,7 @@
   padding: 8px 14px;
   color: var(--text-primary);
   font-size: 0.85rem;
-  min-width: 220px;
+  min-width: 240px;
 }
 
 .moveSelect option {
@@ -144,31 +247,104 @@
 .controlButtons {
   display: flex;
   gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
-/* Reference Hint */
-.referenceHint {
+/* ─── Result confidence gauge ─────────────────────────────────────────────── */
+.resultGauge {
+  padding: var(--space-md) var(--space-lg);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+}
+
+.gaugeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.gaugeMove {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gaugeConf {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.gaugeBarWrap {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.gaugeBar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease, background 0.3s ease;
+}
+
+/* Per-class probability bars */
+.probBars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.probItem {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  background: rgba(0, 212, 255, 0.06);
-  border: 1px solid rgba(0, 212, 255, 0.15);
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
+  gap: 8px;
+}
+
+.probLabel {
+  font-size: 0.78rem;
   color: var(--text-secondary);
+  width: 70px;
+  flex-shrink: 0;
 }
 
-.referenceHint a {
-  color: var(--accent-blue);
-  font-weight: 600;
+.probBarWrap {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
 }
 
-/* Detection History */
+.probBar {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  transition: width 0.4s ease, opacity 0.3s ease;
+}
+
+.probVal {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  width: 34px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.inferenceTime {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ─── Detection history ───────────────────────────────────────────────────── */
 .detectionHistory {
-  margin-top: 20px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 15px;
 }
 
@@ -182,7 +358,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 200px;
+  max-height: 180px;
   overflow-y: auto;
 }
 
@@ -196,28 +372,34 @@
   font-size: 0.9rem;
 }
 
-.historyMove {
-  font-weight: 600;
-  color: var(--accent-green);
+.historyMove       { font-weight: 600; color: var(--accent-green); }
+.historyConfidence { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.historyTime       { font-size: 0.78rem; color: var(--text-muted); }
+
+/* ─── Skeleton Preview (right panel) ─────────────────────────────────────── */
+.skeletonPreviewWrap {
+  margin-bottom: var(--space-md);
 }
 
-.historyConfidence {
+.preSesionHint {
+  padding: var(--space-md) var(--space-lg);
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.12);
+  border-radius: var(--radius-md);
+  font-size: 0.83rem;
   color: var(--text-secondary);
+  line-height: 1.5;
+  text-align: center;
 }
 
-.historyTime {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-/* Responsive */
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .trainLayout {
     flex-direction: column;
     height: auto;
   }
   .panelSection {
-    max-width: 100%;
+     max-width: 100%;
   }
 }
 
@@ -234,41 +416,3 @@
     justify-content: center;
   }
 }
-
-.bufferBadge {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  margin-left: 10px;
-}
-.detectionHistory {
-  margin-top: 20px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 15px;
-}
-.detectionHistory h3 {
-  margin: 0 0 10px 0;
-  font-size: 1rem;
-  color: var(--text-primary);
-}
-.historyList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-.historyItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-.historyMove { font-weight: 600; color: var(--accent-green); }
-.historyConfidence { color: var(--text-secondary); }
-.historyTime { font-size: 0.8rem; color: var(--text-muted); }
