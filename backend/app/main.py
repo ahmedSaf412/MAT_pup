@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
-from app.routers import classify, video   # ← both routers imported AFTER FastAPI
+from app.routers import classify, video, rag_feedback   # ← both routers imported AFTER FastAPI
 
 app = FastAPI(
     title="Martial Arts AI Trainer",
@@ -27,6 +27,8 @@ async def startup_event():
 # ── Routers ──────────────────────────────────────────────────────────────────
 app.include_router(classify.router)
 app.include_router(video.router)
+#add feedback router 
+app.include_router(rag_feedback.router)
 
 # ── Health endpoints ─────────────────────────────────────────────────────────
 @app.get("/")

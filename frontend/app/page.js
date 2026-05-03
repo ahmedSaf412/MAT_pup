@@ -187,11 +187,11 @@ export default function LandingPage() {
           <div className={styles.ctaCard}>
             <h2 className={styles.ctaTitle}>Ready to Train Like Never Before?</h2>
             <p className={styles.ctaDesc}>
-              Join as a trainer or coach. Get AI-powered real-time feedback on every move.
+              Join as a trainee or coach. Get AI-powered real-time feedback on every move.
             </p>
             <div className={styles.ctaButtons}>
               <Link href="/register" className="btn btn-primary btn-lg" id="cta-register-btn">
-                🥋 Start as Trainer
+                🥋 Start as Trainee
               </Link>
               <Link href="/register" className="btn btn-secondary btn-lg" id="cta-coach-btn">
                 🏆 Join as Coach

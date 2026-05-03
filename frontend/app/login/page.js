@@ -87,10 +87,10 @@ export default function LoginPage() {
         <div className={styles.demoButtons}>
           <button
             className={`btn btn-outline btn-sm ${styles.demoBtn}`}
-            onClick={() => handleDemo('trainer')}
-            id="demo-trainer"
+            onClick={() => handleDemo('trainee')}
+            id="demo-trainee"
           >
-            🥋 Demo as Trainer
+            🥋 Demo as Trainee
           </button>
           <button
             className={`btn btn-outline btn-sm ${styles.demoBtn}`}

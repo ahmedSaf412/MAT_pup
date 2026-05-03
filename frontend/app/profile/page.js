@@ -50,7 +50,7 @@ export default function ProfilePage() {
             <p className={styles.profileEmail}>{user.email}</p>
             <div className={styles.profileBadges}>
               <span className="badge badge-blue">
-                {user.role === 'coach' ? '🏆 Coach' : '🥋 Trainer'}
+                {user.role === 'coach' ? '🏆 Coach' : '🥋 Trainee'}
               </span>
               {user.role !== 'coach' && (
                 <span className="badge badge-orange">

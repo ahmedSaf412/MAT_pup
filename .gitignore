@@ -1,6 +1,8 @@
 # Keep large data local - download from README links drive or hugging face
 app/data/
 backend/app/data/
+# ↑ includes Animation/ (reference .mov + .json) and Examplers/ (.mp4 demos)
+
 
 
 # Node

@@ -103,7 +103,7 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated: !!token,
     isCoach: user?.role === 'coach',
-    isTrainer: user?.role === 'trainer' || user?.role === 'user',
+    isTrainee: user?.role === 'trainer' || user?.role === 'trainee' || user?.role === 'user',
     login,
     register,
     logout,
