@@ -4,16 +4,22 @@
 #   Layer 1 — Confidence threshold  (fast, always active)
 #   Layer 2 — Margin check          (fast, always active)
 #   Layer 3 — DTW validation        (slower, only when exampler_sequences.json exists)
-#             If the model says "gedan_barai" but DTW thinks "mae_geri" is a
-#             much better fit, the DTW winner overrides the model prediction.
+#
+# DB Integration:
+#   If session_id is passed, saves a Detection row with:
+#     - frame_timestamp (Unix timestamp of the window start)
+#     - corrections (DTW error list as JSONB)
+#   Then broadcasts to any connected coaches via WebSocket.
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+import time
+import asyncio
 from typing import List, Optional
+
 import numpy as np
 import tensorflow as tf
-import os
-import time
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session as DBSession
 
 from app.rag.ood_config import (
     CONFIDENCE_THRESHOLD,
@@ -21,7 +27,12 @@ from app.rag.ood_config import (
     DTW_OVERRIDE_RATIO,
     DTW_UNKNOWN_THRESHOLD,
 )
-from app.rag.dtw_comparator import score_all_classes   # DTW distances per class
+from app.rag.dtw_comparator import score_all_classes
+from app.database import get_db
+from app.models.session import Detection
+from app.models.move    import MoveReference
+
+import os
 
 router = APIRouter(prefix="/api", tags=["classification"])
 
@@ -48,66 +59,98 @@ class FrameData(BaseModel):
     coords: Optional[List[float]] = None
 
 class ClassifyRequest(BaseModel):
-    frames: List[FrameData]
-    feature_set: str = "angles14"
-    model: str = "Bi-LSTM"
+    frames:           List[FrameData]
+    feature_set:      str = "angles14"
+    model:            str = "Bi-LSTM"
+    # ── DB persistence (optional) ──────────────────────────────────────────
+    session_id:       Optional[int]   = None   # if provided, saves Detection row
+    frame_timestamp:  Optional[float] = None   # Unix ts of the 30-frame window start
+    input_mode:       Optional[str]   = "camera"  # 'camera' | 'upload'
 
 class ClassifyResponse(BaseModel):
-    move: str
-    confidence: float
-    move_id: str
+    move:              str
+    confidence:        float
+    move_id:           str
     inference_time_ms: float
     all_probabilities: List[float]
-    is_unknown: bool = False
-    rejection_reason: Optional[str] = None
+    is_unknown:        bool = False
+    rejection_reason:  Optional[str] = None
+    detection_id:      Optional[int] = None    # DB row ID if saved
 
 
-# ── OOD helper ────────────────────────────────────────────────────────────────
-def _dtw_ood_check(
-    raw_angles_01: np.ndarray,    # (30, 14) — normalized 0-1 angles
-    predicted_class: str,
-) -> tuple[bool, str, str]:
-    """
-    Layer-3 DTW validation.
-
-    Returns (is_ood, corrected_move_id, reason_string).
-    corrected_move_id is the DTW-best class (may differ from predicted_class).
-    """
-    # Convert normalized angles (0-1) to degrees for DTW comparison
-    user_angles_deg = raw_angles_01 * 180.0          # (30, 14) in degrees
-
-    dtw_scores = score_all_classes(user_angles_deg)
+# ── OOD DTW check ─────────────────────────────────────────────────────────────
+def _dtw_ood_check(raw_angles_01: np.ndarray, predicted_class: str):
+    user_angles_deg = raw_angles_01 * 180.0
+    dtw_scores      = score_all_classes(user_angles_deg)
     if not dtw_scores:
-        # exampler_sequences.json not available — skip this layer
         return False, predicted_class, ""
 
     best_class = min(dtw_scores, key=dtw_scores.get)
     best_dist  = dtw_scores[best_class]
     pred_dist  = dtw_scores.get(predicted_class, best_dist)
 
-    # Move is totally unlike anything in our reference set
     if best_dist > DTW_UNKNOWN_THRESHOLD:
-        reason = (
-            f"DTW: best match '{best_class}' has mean deviation {best_dist:.1f}° "
-            f"> unknown threshold {DTW_UNKNOWN_THRESHOLD}°"
+        return True, "unknown", (
+            f"DTW: best match '{best_class}' has mean deviation "
+            f"{best_dist:.1f}° > threshold {DTW_UNKNOWN_THRESHOLD}°"
         )
-        return True, "unknown", reason
 
-    # Model disagrees significantly with DTW
     if best_class != predicted_class and pred_dist > best_dist * DTW_OVERRIDE_RATIO:
         reason = (
             f"DTW override: model→{predicted_class} ({pred_dist:.1f}°) "
-            f"but DTW→{best_class} ({best_dist:.1f}°); ratio={pred_dist/best_dist:.2f}"
+            f"but DTW→{best_class} ({best_dist:.1f}°)"
         )
         print(f"[classify] {reason}")
-        return False, best_class, reason   # not OOD, but corrected
+        return False, best_class, reason
 
     return False, predicted_class, ""
 
 
+# ── DB helpers ────────────────────────────────────────────────────────────────
+def _resolve_move_reference_id(move_id: str, db: DBSession) -> Optional[int]:
+    """Look up the move_reference PK by move_name; create a stub row if missing."""
+    ref = db.query(MoveReference).filter(MoveReference.move_name == move_id).first()
+    if ref:
+        return ref.id
+    # Auto-create a minimal row so FK constraint is satisfied
+    display = move_id.replace("_", " ").title()
+    new_ref = MoveReference(move_name=move_id, display_name=display)
+    db.add(new_ref)
+    db.flush()
+    return new_ref.id
+
+
+def _save_detection(
+    db:                DBSession,
+    session_id:        int,
+    move_id:           str,
+    confidence:        float,
+    corrections:       Optional[list],
+    frame_timestamp:   Optional[float],
+    input_mode:        str,
+) -> Optional[Detection]:
+    """Insert a Detection row and return it (or None if session_id absent)."""
+    move_ref_id = _resolve_move_reference_id(move_id, db)
+    det = Detection(
+        session_id        = session_id,
+        move_reference_id = move_ref_id,
+        confidence        = confidence,
+        input_mode        = input_mode,
+        corrections       = corrections,  # stored as JSONB
+        frame_timestamp   = frame_timestamp or time.time(),
+    )
+    db.add(det)
+    db.commit()
+    db.refresh(det)
+    return det
+
+
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 @router.post("/classify", response_model=ClassifyResponse)
-async def classify_movement(request: ClassifyRequest):
+async def classify_movement(
+    request: ClassifyRequest,
+    db:      DBSession = Depends(get_db),
+):
     start_time = time.time()
 
     try:
@@ -115,83 +158,112 @@ async def classify_movement(request: ClassifyRequest):
             raise HTTPException(400, f"Exactly 30 frames required, got {len(request.frames)}")
 
         if request.feature_set == "angles14":
-            X = np.array([frame.angles for frame in request.frames], dtype=np.float32)
+            X           = np.array([f.angles for f in request.frames], dtype=np.float32)
             feature_key = "Angles14"
         elif request.feature_set == "coords132":
-            X = np.array([frame.coords for frame in request.frames], dtype=np.float32)
+            X           = np.array([f.coords for f in request.frames], dtype=np.float32)
             feature_key = "Coords132"
         else:
             raise HTTPException(400, "Use 'angles14' or 'coords132'")
 
-        raw_angles = X.copy()                 # (30, 14) in 0-1 scale — kept for OOD
+        raw_angles = X.copy()
         model      = load_model("Bi-LSTM", feature_key)
         prediction = model.predict(np.expand_dims(X, 0), verbose=0)[0]
 
-        predicted_idx  = int(np.argmax(prediction))
-        confidence     = float(np.max(prediction))
+        predicted_idx   = int(np.argmax(prediction))
+        confidence      = float(np.max(prediction))
         predicted_class = CLASS_NAMES[predicted_idx]
-        inference_time = (time.time() - start_time) * 1000
+        inference_time  = (time.time() - start_time) * 1000
 
-        is_unknown      = False
+        is_unknown       = False
         rejection_reason = None
         final_class      = predicted_class
 
         # ── Layer 1: Confidence ───────────────────────────────────────────────
         if confidence < CONFIDENCE_THRESHOLD:
-            is_unknown = True
-            rejection_reason = (
-                f"Low confidence: {confidence:.3f} < {CONFIDENCE_THRESHOLD}"
-            )
+            is_unknown       = True
+            rejection_reason = f"Low confidence: {confidence:.3f} < {CONFIDENCE_THRESHOLD}"
 
         # ── Layer 2: Margin ───────────────────────────────────────────────────
         if not is_unknown:
             sorted_probs = sorted(prediction, reverse=True)
             margin = sorted_probs[0] - sorted_probs[1]
             if margin < MARGIN_THRESHOLD:
-                is_unknown = True
-                rejection_reason = (
-                    f"Ambiguous: margin {margin:.3f} < {MARGIN_THRESHOLD}"
-                )
+                is_unknown       = True
+                rejection_reason = f"Ambiguous: margin {margin:.3f} < {MARGIN_THRESHOLD}"
 
         # ── Layer 3: DTW Validation ───────────────────────────────────────────
         if not is_unknown and request.feature_set == "angles14":
-            is_ood, corrected_class, dtw_reason = _dtw_ood_check(
-                raw_angles, predicted_class
-            )
+            is_ood, corrected_class, dtw_reason = _dtw_ood_check(raw_angles, predicted_class)
             if is_ood:
                 is_unknown       = True
                 rejection_reason = dtw_reason
             elif corrected_class != predicted_class:
-                # DTW overrides model (not unknown — just a correction)
                 final_class      = corrected_class
-                rejection_reason = dtw_reason   # informational
-                # Update predicted_idx for title formatting
+                rejection_reason = dtw_reason
                 predicted_idx    = CLASS_NAMES.index(final_class)
 
         # ── Build response ────────────────────────────────────────────────────
+        move_id_for_db  = "unknown" if is_unknown else final_class
+        detection_db_id = None
+
+        # ── Persist to DB if session_id was provided ──────────────────────────
+        if request.session_id:
+            det = _save_detection(
+                db             = db,
+                session_id     = request.session_id,
+                move_id        = move_id_for_db,
+                confidence     = confidence,
+                corrections    = None,    # DTW corrections come from /api/rag/feedback
+                frame_timestamp = request.frame_timestamp or time.time(),
+                input_mode     = request.input_mode or "camera",
+            )
+            detection_db_id = det.id if det else None
+
+            # ── Broadcast to coaches via WebSocket ────────────────────────────
+            from app.routers.live_session import manager as ws_manager
+            if ws_manager.session_has_coaches(request.session_id):
+                event = {
+                    "event":             "detection",
+                    "session_id":        request.session_id,
+                    "detection_id":      detection_db_id,
+                    "move":              move_id_for_db.replace("_", " ").title(),
+                    "move_id":           move_id_for_db,
+                    "confidence":        round(confidence, 4),
+                    "is_unknown":        is_unknown,
+                    "rejection_reason":  rejection_reason,
+                    "inference_time_ms": round(inference_time, 2),
+                    "frame_timestamp":   request.frame_timestamp,
+                    "all_probabilities": [round(float(p), 4) for p in prediction],
+                }
+                asyncio.create_task(
+                    ws_manager.broadcast(request.session_id, event)
+                )
+
         if is_unknown:
             return ClassifyResponse(
-                move             ="Unknown",
-                confidence       = round(confidence, 4),
-                move_id          ="unknown",
-                inference_time_ms= round(inference_time, 2),
-                all_probabilities=[round(float(p), 4) for p in prediction],
-                is_unknown       = True,
-                rejection_reason = rejection_reason,
+                move              = "Unknown",
+                confidence        = round(confidence, 4),
+                move_id           = "unknown",
+                inference_time_ms = round(inference_time, 2),
+                all_probabilities = [round(float(p), 4) for p in prediction],
+                is_unknown        = True,
+                rejection_reason  = rejection_reason,
+                detection_id      = detection_db_id,
             )
 
-        display_name = final_class.replace("_", " ").title()
         return ClassifyResponse(
-            move             = display_name,
-            confidence       = round(confidence, 4),
-            move_id          = final_class,
-            inference_time_ms= round(inference_time, 2),
-            all_probabilities=[round(float(p), 4) for p in prediction],
-            is_unknown       = False,
-            rejection_reason = rejection_reason,   # may carry the DTW override note
+            move              = final_class.replace("_", " ").title(),
+            confidence        = round(confidence, 4),
+            move_id           = final_class,
+            inference_time_ms = round(inference_time, 2),
+            all_probabilities = [round(float(p), 4) for p in prediction],
+            is_unknown        = False,
+            rejection_reason  = rejection_reason,
+            detection_id      = detection_db_id,
         )
 
     except FileNotFoundError as e:
         raise HTTPException(500, str(e))
     except Exception as e:
-        raise HTTPException(500, f"Error: {str(e)}")
+        raise HTTPException(500, f"Classify error: {str(e)}")

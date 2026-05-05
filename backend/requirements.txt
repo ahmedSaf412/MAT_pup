@@ -7,7 +7,9 @@ python-multipart==0.0.9
 # ── Database ──────────────────────────────────────────────────────────────────
 SQLAlchemy==2.0.27
 alembic==1.13.1
-aiosqlite==0.20.0
+psycopg2-binary==2.9.9     # PostgreSQL driver
+pgvector==0.3.6            # pgvector SQLAlchemy type + <=> operator
+websockets==12.0           # WebSocket support for live coach feed
 
 # ── Auth / Security ───────────────────────────────────────────────────────────
 passlib==1.7.4
