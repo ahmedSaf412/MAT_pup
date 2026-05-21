@@ -354,13 +354,17 @@ export default function TrainPage() {
   };
 
   // ── Classifier + RAG pipeline ─────────────────────────────────────────────
-  // frames        : 30 entries with { angles } for Bi-LSTM
-  // landmarkFrames: same 30 entries as [{x,y,z,visibility}×33] for DTW/RAG
   const sendToClassifier = async (frames, landmarkFrames, intendedMove) => {
     try {
+      // Map both angles and full landmarks into the frame objects
+      const payloadFrames = frames.map((f, i) => ({
+        angles: f.angles,
+        landmarks: landmarkFrames[i]
+      }));
+
       const response = await api.post('/api/classify', {
-        frames,
-        feature_set: 'angles14',
+        frames: payloadFrames,
+        feature_set: 'landmarks',
         model: 'Bi-LSTM',
       });
 

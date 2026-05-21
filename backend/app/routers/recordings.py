@@ -58,6 +58,7 @@ def _process_video_background(recording_id: int, file_path: str, session_id: int
     from app.models.move import MoveReference
     from app.routers.classify import load_model, _dtw_ood_check, _save_detection, CLASS_NAMES
     from app.rag.angle_calculator import compute_14_angles, ANGLE_NAMES
+    from app.rag.feature_extractor import extract_102_features
     import math
 
     SessionLocal = sessionmaker(bind=engine)
@@ -94,6 +95,7 @@ def _process_video_background(recording_id: int, file_path: str, session_id: int
                 buffer.append({
                     "norm": norm_angles,
                     "raw_deg": [angles_dict[n] for n in ANGLE_NAMES],
+                    "features_102": extract_102_features(lm_list),
                     "timestamp": frame_idx / fps,
                 })
             frame_idx += 1
@@ -108,7 +110,7 @@ def _process_video_background(recording_id: int, file_path: str, session_id: int
         step = WINDOW_SIZE
         for start in range(0, len(buffer) - WINDOW_SIZE + 1, step):
             window    = buffer[start: start + WINDOW_SIZE]
-            X         = np.array([w["norm"] for w in window], dtype=np.float32)
+            X         = np.array([w["features_102"] for w in window], dtype=np.float32)
             ts_start  = window[0]["timestamp"]  # Unix offset in video seconds
 
             prediction    = model.predict(np.expand_dims(X, 0), verbose=0)[0]

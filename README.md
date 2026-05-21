@@ -104,8 +104,11 @@ backend/app/data/
 └── karate_coords.csv
 
 backend/app/models/Results/
-├── Bi-LSTM_Angles14.keras                      ← trained model
-└── Bi-LSTM_Coords132.keras
+├── Run_May21_2217/
+│   ├── best_single_bilstm.keras                ← active trained model
+│   └── model_metadata.json                     ← model architecture info
+├── Bi-LSTM_Angles14.keras                      ← legacy model
+└── Bi-LSTM_Coords132.keras                     ← legacy model
 ```
 
 ---

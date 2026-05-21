@@ -28,6 +28,7 @@ from app.rag.ood_config import (
     DTW_UNKNOWN_THRESHOLD,
 )
 from app.rag.dtw_comparator import score_all_classes
+from app.rag.feature_extractor import extract_102_features
 from app.database import get_db
 from app.models.session import Detection
 from app.models.move    import MoveReference
@@ -37,19 +38,26 @@ import os
 router = APIRouter(prefix="/api", tags=["classification"])
 
 # ── Constants ─────────────────────────────────────────────────────────────────
-CLASS_NAMES = ["mae_geri", "gyaku_zuki", "gedan_barai"]
+# New model (Run_May21_2217/best_single_bilstm.keras) was trained with classes
+# in alphabetical order: GedanBarai (0), Gyakudzuki (1), MaeGeri (2).
+# We map those to the snake_case API names used throughout this system.
+CLASS_NAMES = ["gedan_barai", "gyaku_zuki", "mae_geri"]
+
+# ── Active model path (single source of truth) ─────────────────────────────
+ACTIVE_MODEL_PATH = os.path.join(
+    "app", "models", "Results", "Run_May21_2217", "best_single_bilstm.keras"
+)
 
 # ── Model cache ───────────────────────────────────────────────────────────────
 _model_cache = {}
 
-def load_model(model_name: str, feature_set: str):
-    key = f"{model_name}_{feature_set}"
+def load_model(model_name: str = None, feature_set: str = None):
+    key = "active_model"
     if key not in _model_cache:
-        model_path = os.path.join("app", "models", "Results", f"{model_name}_{feature_set}.keras")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model not found: {model_path}")
-        _model_cache[key] = tf.keras.models.load_model(model_path)
-        print(f"✅ Loaded: {model_path}")
+        if not os.path.exists(ACTIVE_MODEL_PATH):
+            raise FileNotFoundError(f"Active model not found: {ACTIVE_MODEL_PATH}")
+        _model_cache[key] = tf.keras.models.load_model(ACTIVE_MODEL_PATH)
+        print(f"✅ Loaded active model: {ACTIVE_MODEL_PATH}")
     return _model_cache[key]
 
 
@@ -57,6 +65,7 @@ def load_model(model_name: str, feature_set: str):
 class FrameData(BaseModel):
     angles: Optional[List[float]] = None
     coords: Optional[List[float]] = None
+    landmarks: Optional[List[dict]] = None
 
 class ClassifyRequest(BaseModel):
     frames:           List[FrameData]
@@ -157,17 +166,15 @@ async def classify_movement(
         if len(request.frames) != 30:
             raise HTTPException(400, f"Exactly 30 frames required, got {len(request.frames)}")
 
-        if request.feature_set == "angles14":
-            X           = np.array([f.angles for f in request.frames], dtype=np.float32)
-            feature_key = "Angles14"
-        elif request.feature_set == "coords132":
-            X           = np.array([f.coords for f in request.frames], dtype=np.float32)
-            feature_key = "Coords132"
+        if request.frames[0].landmarks is not None:
+            # New frontend sends landmarks -> we can build 102 features
+            X = np.array([extract_102_features(f.landmarks) for f in request.frames], dtype=np.float32)
+            raw_angles = np.array([f.angles for f in request.frames], dtype=np.float32)
         else:
-            raise HTTPException(400, "Use 'angles14' or 'coords132'")
+            # Old frontend, or missing landmarks
+            raise HTTPException(400, "Frontend update required: Please refresh your browser. The new active model requires 'landmarks' to extract 102 features, but only received 'angles'.")
 
-        raw_angles = X.copy()
-        model      = load_model("Bi-LSTM", feature_key)
+        model      = load_model()
         prediction = model.predict(np.expand_dims(X, 0), verbose=0)[0]
 
         predicted_idx   = int(np.argmax(prediction))
@@ -193,7 +200,7 @@ async def classify_movement(
                 rejection_reason = f"Ambiguous: margin {margin:.3f} < {MARGIN_THRESHOLD}"
 
         # ── Layer 3: DTW Validation ───────────────────────────────────────────
-        if not is_unknown and request.feature_set == "angles14":
+        if not is_unknown and request.feature_set in ["angles14", "landmarks"]:
             is_ood, corrected_class, dtw_reason = _dtw_ood_check(raw_angles, predicted_class)
             if is_ood:
                 is_unknown       = True
