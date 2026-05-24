@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { LineChart, RadarChart } from '../components/StatsChart';
+import api from '../services/api';
 import styles from './dashboard.module.css';
 
 // Mock data for demo
@@ -19,18 +20,35 @@ const MOCK_SESSIONS = [
 export default function DashboardPage() {
   const { user, isAuthenticated, isCoach } = useAuth();
   const router = useRouter();
-  const [sessions] = useState(MOCK_SESSIONS);
+  const [sessions, setSessions] = useState([]);
+  const [myCoach, setMyCoach] = useState(null);
+  const [availableCoaches, setAvailableCoaches] = useState([]);
 
   useEffect(() => {
     if (!isAuthenticated) router.push('/login');
     if (isCoach) router.push('/coach');
+    
+    if (isAuthenticated && !isCoach) {
+      api.get('/api/trainee/coach').then(res => setMyCoach(res.data)).catch(() => {});
+      api.get('/api/trainee/coaches').then(res => setAvailableCoaches(res.data)).catch(() => {});
+      api.get('/api/trainee/stats').then(res => setSessions(res.data.sessions)).catch(() => {});
+    }
   }, [isAuthenticated, isCoach, router]);
+
+  const handleRequestCoach = async (coachId) => {
+    try {
+      await api.post(`/api/trainee/coaches/${coachId}/request`);
+      alert("Coach requested! Waiting for them to accept.");
+    } catch (e) {
+      alert("Failed to request coach.");
+    }
+  };
 
   if (!user) return <div className="loading-container"><div className="spinner" /></div>;
 
   const totalSessions = sessions.length;
-  const avgScore = Math.round(sessions.reduce((s, se) => s + se.score, 0) / totalSessions);
-  const totalTime = sessions.reduce((t, se) => t + parseInt(se.duration), 0);
+  const avgScore = totalSessions > 0 ? Math.round(sessions.reduce((s, se) => s + se.score, 0) / totalSessions) : 0;
+  const totalTime = sessions.reduce((t, se) => t + (parseInt(se.duration) || 0), 0);
 
   return (
     <div className={styles.dashboard}>
@@ -71,6 +89,37 @@ export default function DashboardPage() {
             <div className={styles.statIcon}>🔥</div>
             <div className={styles.statValue}>5</div>
             <div className={styles.statLabel}>Day Streak</div>
+          </div>
+        </div>
+
+        {/* Coach Section */}
+        <div className={`glass-card ${styles.sessionsCard}`}>
+          <div className={styles.sessionsHeader}>
+            <h2 className={styles.sessionsTitle}>My Coach</h2>
+          </div>
+          <div style={{ padding: '15px' }}>
+            {myCoach ? (
+              <div>
+                <p><strong>{myCoach.full_name}</strong> - {myCoach.email}</p>
+                <p>{myCoach.bio || 'Your assigned coach.'}</p>
+              </div>
+            ) : (
+              <div>
+                <p style={{marginBottom: 10}}>You don't have a coach assigned yet. Request one below:</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {availableCoaches.map(c => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 10, background: 'rgba(255,255,255,0.05)', borderRadius: 8 }}>
+                      <div>
+                        <strong>{c.full_name}</strong> ({c.email})
+                      </div>
+                      <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => handleRequestCoach(c.id)}>
+                        Request
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -8,55 +8,7 @@ import { LineChart, RadarChart } from '../../../components/StatsChart';
 import CorrectionPanel from '../../../components/CorrectionPanel';
 import styles from '../../coach.module.css';
 
-// Mock trainee data
-const TRAINEES_DATA = {
-  1: {
-    name: 'Mohamed Ali', belt: 'yellow', email: 'mohamed@test.com',
-    sessions: [
-      { date: '2026-03-10', duration: '25m', score: 87, moves: ['Front Kick', 'Roundhouse'] },
-      { date: '2026-03-08', duration: '18m', score: 74, moves: ['Side Kick'] },
-      { date: '2026-03-06', duration: '32m', score: 82, moves: ['Front Kick', 'Punch'] },
-      { date: '2026-03-04', duration: '20m', score: 68, moves: ['Roundhouse'] },
-    ],
-    corrections: [
-      { joint: 'guard_hand', frequency: 78, color: 'var(--accent-red)' },
-      { joint: 'hip_rotation', frequency: 65, color: 'var(--accent-orange)' },
-      { joint: 'knee_height', frequency: 45, color: 'var(--accent-yellow)' },
-      { joint: 'stance_width', frequency: 22, color: 'var(--accent-green)' },
-    ],
-    progressScores: [45, 55, 60, 68, 74, 82, 87],
-    progressLabels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'],
-    moveAccuracy: { labels: ['Front Kick', 'Roundhouse', 'Side Kick', 'Punch', 'Block'], scores: [82, 68, 55, 78, 70] },
-  },
-  2: {
-    name: 'Sara Ahmed', belt: 'green', email: 'sara@test.com',
-    sessions: [
-      { date: '2026-03-09', duration: '30m', score: 92, moves: ['Side Kick', 'Block', 'Punch'] },
-      { date: '2026-03-07', duration: '22m', score: 88, moves: ['Roundhouse', 'Front Kick'] },
-    ],
-    corrections: [
-      { joint: 'hip_rotation', frequency: 35, color: 'var(--accent-yellow)' },
-      { joint: 'retraction_speed', frequency: 28, color: 'var(--accent-green)' },
-    ],
-    progressScores: [65, 72, 78, 82, 85, 88, 92],
-    progressLabels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'],
-    moveAccuracy: { labels: ['Front Kick', 'Roundhouse', 'Side Kick', 'Punch', 'Block'], scores: [90, 85, 88, 82, 92] },
-  },
-};
-
-// Default data for IDs not found
-const DEFAULT_TRAINEE = {
-  name: 'Trainee', belt: 'white', email: 'trainee@test.com',
-  sessions: [
-    { date: '2026-03-10', duration: '20m', score: 70, moves: ['Front Kick'] },
-  ],
-  corrections: [
-    { joint: 'guard_hand', frequency: 50, color: 'var(--accent-yellow)' },
-  ],
-  progressScores: [40, 50, 55, 60, 65, 68, 70],
-  progressLabels: ['W1', 'W2', 'W3', 'W4', 'W5', 'W6', 'W7'],
-  moveAccuracy: { labels: ['Front Kick', 'Roundhouse', 'Side Kick', 'Punch', 'Block'], scores: [70, 55, 50, 60, 65] },
-};
+import api from '../../../services/api';
 
 export default function TraineeDetailPage() {
   const { isAuthenticated, isCoach } = useAuth();
@@ -64,13 +16,33 @@ export default function TraineeDetailPage() {
   const params = useParams();
   const traineeId = params.id;
   const [notes, setNotes] = useState('');
+  const [trainee, setTrainee] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) router.push('/login');
-    if (isAuthenticated && !isCoach) router.push('/dashboard');
-  }, [isAuthenticated, isCoach, router]);
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    if (isAuthenticated && !isCoach) {
+      router.push('/dashboard');
+      return;
+    }
+    
+    if (isAuthenticated && isCoach) {
+      api.get(`/api/coach/trainees/${traineeId}`)
+        .then(res => {
+          setTrainee(res.data);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setLoading(false);
+        });
+    }
+  }, [isAuthenticated, isCoach, router, traineeId]);
 
-  const trainee = TRAINEES_DATA[traineeId] || DEFAULT_TRAINEE;
+  if (loading || !trainee) return <div className="loading-container"><div className="spinner" /></div>;
 
   return (
     <div className={styles.detailPage}>
@@ -112,9 +84,9 @@ export default function TraineeDetailPage() {
         {/* Correction Patterns (Coach Analysis) */}
         <div className={`glass-card ${styles.correctionsCard}`}>
           <h2 className={styles.correctionsTitle}>📐 Correction Patterns</h2>
-          {trainee.corrections.map((c, i) => (
+          {trainee.corrections && trainee.corrections.length > 0 ? trainee.corrections.map((c, i) => (
             <div key={i} className={styles.correctionItem}>
-              <span className={styles.correctionJoint}>{c.joint.replace('_', ' ')}</span>
+              <span className={styles.correctionJoint}>{c.joint.replace(/_/g, ' ')}</span>
               <div className={styles.correctionFreq}>
                 <div className={styles.freqBar}>
                   <div
@@ -130,18 +102,20 @@ export default function TraineeDetailPage() {
                 {c.frequency}%
               </span>
             </div>
-          ))}
+          )) : (
+            <p style={{ color: 'var(--text-secondary)' }}>No correction data yet.</p>
+          )}
         </div>
 
         {/* Session History */}
         <div className={`glass-card ${styles.sessionsCard}`}>
           <h2 className={styles.sessionsTitle}>📋 Session History</h2>
-          {trainee.sessions.map((s, i) => (
+          {trainee.sessions && trainee.sessions.length > 0 ? trainee.sessions.map((s, i) => (
             <div key={i} className={styles.sessionRow}>
               <span className={styles.sessionDate}>📅 {s.date}</span>
               <span className={styles.sessionDuration}>{s.duration}</span>
               <div className={styles.sessionMoves}>
-                {s.moves.map((m) => (
+                {s.moves && s.moves.map((m) => (
                   <span key={m} className="badge badge-blue">{m}</span>
                 ))}
               </div>
@@ -154,7 +128,9 @@ export default function TraineeDetailPage() {
                 {s.score}%
               </span>
             </div>
-          ))}
+          )) : (
+            <p style={{ color: 'var(--text-secondary)' }}>No sessions recorded yet.</p>
+          )}
         </div>
 
         {/* Coach Notes */}

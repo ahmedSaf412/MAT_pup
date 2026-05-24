@@ -21,11 +21,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  /* Never let this section grow past the viewport — keeps camera visible */
-  overflow: hidden;
+  /* Allow this section to scroll so the AI feedback panel is visible */
+  overflow-y: auto;
   position: sticky;
   top: var(--space-lg);
   max-height: calc(100vh - var(--navbar-height) - var(--space-2xl));
+  padding-right: 10px; /* space for scrollbar */
 }
 
 .panelSection {

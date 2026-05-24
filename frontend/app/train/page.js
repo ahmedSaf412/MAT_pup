@@ -6,6 +6,7 @@ import { usePose } from '../context/PoseContext';
 import PoseCanvas from '../components/PoseCanvas';
 import CorrectionPanel from '../components/CorrectionPanel';
 import MoveSkeletonPreview from '../components/MoveSkeletonPreview';
+import RepResultPanel from '../components/RepResultPanel';
 import api from '../services/api';
 import { extract14Angles } from '../utils/angleCalculator';
 import styles from './train.module.css';
@@ -75,7 +76,7 @@ function findBestWindow(frames, windowSize = WINDOW_SIZE) {
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function TrainPage() {
   const { user }                          = useAuth();
-  const { setCurrentMoveId, setCurrentLandmarks, setCurrentLandmarkFrames } = usePose();
+  const { setCurrentMoveId, setCurrentLandmarks, setCurrentLandmarkFrames, currentLandmarkFrames } = usePose();
   const router                            = useRouter();
   const videoRef                          = useRef(null);
   const fileInputRef                      = useRef(null);
@@ -98,13 +99,17 @@ export default function TrainPage() {
 
   // ── Pose & feedback state
   const [landmarks,         setLandmarks]         = useState(null);
+  const [refSkeletonFrames, setRefSkeletonFrames] = useState(null);
+  const [significantErrors, setSignificantErrors] = useState([]);
   const [currentCorrection, setCurrentCorrection] = useState({ move: '', confidence: 0, corrections: [] });
   const [detectionHistory,  setDetectionHistory]  = useState([]);
   const [lastResult,        setLastResult]         = useState(null);
   const [ragFeedback,       setRagFeedback]        = useState('');   // AI coach text
+  const [activeSessionId,   setActiveSessionId]    = useState(null);
 
   // ── Refs (prevent stale closures inside MediaPipe callbacks)
   const timerRef            = useRef(null);
+  const activeSessionIdRef  = useRef(null);
   const armTimeoutRef       = useRef(null);   // auto-disarm after 10 s
   const countdownRef        = useRef(null);   // interval for 3-2-1 countdown
   const mediaPipeRef        = useRef(null);
@@ -126,6 +131,24 @@ export default function TrainPage() {
   useEffect(() => { isArmedRef.current    = isArmed; },       [isArmed]);
   useEffect(() => { repCountRef.current   = repCount; },      [repCount]);
   useEffect(() => { selectedMoveRef.current = selectedMove; },[selectedMove]);
+
+  // ── Create Training Session on Mount ──────────────────────────────────────
+  useEffect(() => {
+    let sessionId = null;
+    api.post('/api/sessions/start', { session_type: 'live' })
+      .then(res => {
+        setActiveSessionId(res.data.id);
+        activeSessionIdRef.current = res.data.id;
+        sessionId = res.data.id;
+      })
+      .catch(err => console.error("Could not start session:", err));
+      
+    return () => {
+      if (sessionId) {
+        api.post(`/api/sessions/${sessionId}/end`).catch(() => {});
+      }
+    };
+  }, []);
 
   // ── Initialize MediaPipe singleton ────────────────────────────────────────
   useEffect(() => {
@@ -366,9 +389,12 @@ export default function TrainPage() {
         frames: payloadFrames,
         feature_set: 'landmarks',
         model: 'Bi-LSTM',
+        session_id: activeSessionIdRef.current,
+        input_mode: 'camera',
+        frame_timestamp: Date.now() / 1000
       });
 
-      const { move, confidence, inference_time_ms, all_probabilities, move_id } = response.data;
+      const { move, confidence, inference_time_ms, all_probabilities, move_id, detection_id } = response.data;
 
       setLastResult({ move, confidence, allProbs: all_probabilities, inferenceMs: inference_time_ms });
 
@@ -398,22 +424,28 @@ export default function TrainPage() {
       // ── Non-blocking DTW RAG coaching feedback ──────────────────────────
       if (finalMoveId !== 'free' && landmarkFrames?.length >= 5) {
         setRagFeedback('🤔 Comparing your form to the master via DTW…');
+        setRefSkeletonFrames(null);
+        setSignificantErrors([]);
+
+        api.get(`/api/video/${finalMoveId}/landmarks?view=front`)
+          .then(skRes => {
+            if (skRes.data?.frames) {
+              setRefSkeletonFrames(skRes.data.frames);
+            }
+          })
+          .catch(err => console.warn('Failed to load ref skeleton:', err));
+
         api.post('/api/rag/feedback', {
           move_id: finalMoveId,
           frames:  landmarkFrames,   // full sequence: [frames][33 landmarks]
+          detection_id: detection_id, // link feedback to DB row
         })
           .then(ragResult => {
             const fb = ragResult.data?.feedback;
+            const errs = ragResult.data?.errors || [];
             if (fb) {
               setRagFeedback(fb);
-              // Append coach text to correction panel
-              setCurrentCorrection(prev => ({
-                ...prev,
-                corrections: [
-                  ...prev.corrections,
-                  { joint: 'ai_coach', message: fb, severity: 'info' },
-                ],
-              }));
+              setSignificantErrors(errs);
             }
           })
           .catch(err => {
@@ -645,6 +677,22 @@ export default function TrainPage() {
               )}
             </div>
           </div>
+
+          {/* AI Sensei Analysis - Moved to bottom of left column */}
+          {lastResult && (
+            <div style={{ marginTop: '24px' }}>
+              <RepResultPanel
+                moveId={lastResult.move}
+                moveName={lastResult.move}
+                confidence={lastResult.confidence}
+                inferenceMs={lastResult.inferenceMs}
+                traineeFrames={currentLandmarkFrames}
+                refFrames={refSkeletonFrames}
+                aiFeedback={ragFeedback !== '🤔 Comparing your form to the master via DTW…' ? ragFeedback : null}
+                errors={significantErrors}
+              />
+            </div>
+          )}
         </div>{/* end videoSection */}
 
         {/* ── Right panel: Preview + Results (scrolls independently) ── */}
@@ -698,20 +746,6 @@ export default function TrainPage() {
                 ))}
               </div>
               <div className={styles.inferenceTime}>⚡ {lastResult.inferenceMs?.toFixed(1)} ms inference</div>
-            </div>
-          )}
-
-          {/* AI Coach RAG feedback banner */}
-          {ragFeedback && (
-            <div style={{
-              background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.15)',
-              borderRadius: 10, padding: '12px 14px', fontSize: '0.82rem',
-              color: 'rgba(255,255,255,0.82)', lineHeight: 1.55,
-            }}>
-              <div style={{ fontWeight: 700, color: '#00d4ff', marginBottom: 6, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                🤖 AI Sensei
-              </div>
-              {ragFeedback}
             </div>
           )}
 
