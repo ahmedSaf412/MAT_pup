@@ -28,6 +28,7 @@ def register(body: UserRegister, db: Session = Depends(get_db)):
     user = User(
         email           = body.email,
         hashed_password = hash_password(body.password),
+        full_name       = body.full_name,
         role            = role,
         phone           = body.phone,
         is_active       = True,
@@ -76,6 +77,7 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         email      = current_user.email,
         role       = current_user.role,
         is_active  = current_user.is_active,
+        full_name  = current_user.full_name,
         created_at = current_user.created_at,
     )
     # Attach profile extras

@@ -88,9 +88,9 @@ class ClassifyResponse(BaseModel):
 
 
 # ── OOD DTW check ─────────────────────────────────────────────────────────────
-def _dtw_ood_check(raw_angles_01: np.ndarray, predicted_class: str):
+def _dtw_ood_check(raw_angles_01: np.ndarray, predicted_class: str, user_landmark_frames: list = None):
     user_angles_deg = raw_angles_01 * 180.0
-    dtw_scores      = score_all_classes(user_angles_deg)
+    dtw_scores      = score_all_classes(user_angles_deg, user_landmark_frames)
     if not dtw_scores:
         return False, predicted_class, ""
 
@@ -106,8 +106,8 @@ def _dtw_ood_check(raw_angles_01: np.ndarray, predicted_class: str):
 
     if best_class != predicted_class and pred_dist > best_dist * DTW_OVERRIDE_RATIO:
         reason = (
-            f"DTW override: model→{predicted_class} ({pred_dist:.1f}°) "
-            f"but DTW→{best_class} ({best_dist:.1f}°)"
+            f"DTW override: model->{predicted_class} ({pred_dist:.1f}°) "
+            f"but DTW->{best_class} ({best_dist:.1f}°)"
         )
         print(f"[classify] {reason}")
         return False, best_class, reason
@@ -201,7 +201,8 @@ async def classify_movement(
 
         # ── Layer 3: DTW Validation ───────────────────────────────────────────
         if not is_unknown and request.feature_set in ["angles14", "landmarks"]:
-            is_ood, corrected_class, dtw_reason = _dtw_ood_check(raw_angles, predicted_class)
+            user_lms = [f.landmarks for f in request.frames] if request.frames[0].landmarks else None
+            is_ood, corrected_class, dtw_reason = _dtw_ood_check(raw_angles, predicted_class, user_lms)
             if is_ood:
                 is_unknown       = True
                 rejection_reason = dtw_reason
@@ -273,4 +274,6 @@ async def classify_movement(
     except FileNotFoundError as e:
         raise HTTPException(500, str(e))
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(500, f"Classify error: {str(e)}")

@@ -5,7 +5,13 @@ from .dtw_comparator import compare_with_dtw
 from .retriever import retrieve
 from .llm_client import generate_coaching_feedback, generate_chat_response
 
-async def process_form_feedback(move_id: str, user_landmark_frames: list) -> dict:
+async def process_form_feedback(
+    move_id: str,
+    user_landmark_frames: list,
+    session_id: int | None = None,
+    move_reference_id: int | None = None,
+    confidence: float | None = None,
+) -> dict:
     """
     Main RAG orchestrator — DTW-based sequence comparison.
 
@@ -13,20 +19,31 @@ async def process_form_feedback(move_id: str, user_landmark_frames: list) -> dic
     ----------
     move_id              : e.g. 'mae_geri'
     user_landmark_frames : list of frames, each frame is a list of 33 dicts
-                           [{"x":…,"y":…,"z":…,"visibility":…}, …×33]
-                           (the user's full rep, typically 30 frames)
+                           [{x,y,z,visibility}, …×33]
+    session_id           : optional — if provided, errors are saved to detection table
+    move_reference_id    : optional — FK for detection table
+    confidence           : optional — model confidence for detection table
 
     Returns
     -------
     {
       "feedback": "<LLM coaching text>",
-      "errors":   [{"joint":…, "mean_error":…, …}, …],
-      "sources":  [{"text":…, "metadata":…}, …]
+      "errors":   [{joint, mean_error, status, …}, …],
+      "sources":  [{text, metadata}, …]
     }
     """
 
-    # 1. DTW compare user sequence to Exemplar reference
+    # 1. DTW compare user sequence to reference (MADS P3 or exemplar fallback)
     significant_errors = compare_with_dtw(move_id, user_landmark_frames)
+
+    # 2. Persist errors to Detection table immediately (non-blocking path)
+    if session_id is not None and significant_errors:
+        _save_detection_errors(
+            session_id=session_id,
+            move_reference_id=move_reference_id,
+            confidence=confidence,
+            errors=significant_errors,
+        )
 
     if not significant_errors:
         return {
@@ -38,7 +55,7 @@ async def process_form_feedback(move_id: str, user_landmark_frames: list) -> dic
             "sources": [],
         }
 
-    # 2. Retrieve coaching chunks for the top 2 worst joints
+    # 3. Retrieve coaching chunks for the top 2 worst joints
     all_chunks = []
     seen_texts = set()
 
@@ -50,7 +67,7 @@ async def process_form_feedback(move_id: str, user_landmark_frames: list) -> dic
                 seen_texts.add(ch["text"])
                 all_chunks.append(ch)
 
-    # 3. Generate LLM coaching feedback
+    # 4. Generate LLM coaching feedback
     feedback_text = generate_coaching_feedback(move_id, significant_errors, all_chunks)
 
     return {
@@ -58,6 +75,39 @@ async def process_form_feedback(move_id: str, user_landmark_frames: list) -> dic
         "errors":   significant_errors,
         "sources":  all_chunks,
     }
+
+
+def _save_detection_errors(
+    session_id: int,
+    move_reference_id: int | None,
+    confidence: float | None,
+    errors: list[dict],
+) -> None:
+    """
+    Persist DTW correction errors to the detection table.
+    Called synchronously but in a background-safe way.
+    """
+    try:
+        from app.database import SessionLocal
+        from app.models.session import Detection
+        import time
+
+        db = SessionLocal()
+        try:
+            det = Detection(
+                session_id        = session_id,
+                move_reference_id = move_reference_id,
+                confidence        = confidence,
+                corrections       = errors,   # JSONB column
+                frame_timestamp   = time.time(),
+            )
+            db.add(det)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        # Never crash the feedback pipeline over a DB write failure
+        print(f"[pipeline] ⚠️  Detection save failed: {exc}")
 
 
 async def process_chat_message(message: str, move_id: str = None) -> dict:

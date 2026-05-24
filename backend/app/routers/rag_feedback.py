@@ -3,9 +3,12 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 from app.rag.pipeline import process_form_feedback, process_chat_message
+from app.database import get_db
+from sqlalchemy.orm import Session as DBSession
+from app.models.session import Detection
+from fastapi import Depends
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
-
 
 # ── DTW Feedback endpoint ─────────────────────────────────────────────────────
 
@@ -20,9 +23,10 @@ class DTWFeedbackRequest(BaseModel):
     # Full rep as a list of frames; each frame is 33 MediaPipe landmarks.
     # Shape: [num_frames][33]  (typically 30 frames)
     frames: List[List[LandmarkSchema]]
+    detection_id: Optional[int] = None
 
 @router.post("/feedback")
-async def get_feedback(req: DTWFeedbackRequest):
+async def get_feedback(req: DTWFeedbackRequest, db: DBSession = Depends(get_db)):
     if len(req.frames) < 5:
         raise HTTPException(400, "Need at least 5 frames for DTW comparison")
 
@@ -34,6 +38,14 @@ async def get_feedback(req: DTWFeedbackRequest):
 
     try:
         result = await process_form_feedback(req.move_id, frames_as_dicts)
+        
+        # If detection_id provided, save corrections to DB for coach app
+        if req.detection_id:
+            det = db.query(Detection).filter(Detection.id == req.detection_id).first()
+            if det:
+                det.corrections = result.get("errors", [])
+                db.commit()
+                
         return result
     except Exception as e:
         raise HTTPException(500, f"DTW feedback error: {str(e)}")

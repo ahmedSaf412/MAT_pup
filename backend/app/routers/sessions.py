@@ -33,6 +33,7 @@ def start_session(
         trainee_id   = trainee.id,
         session_type = body.session_type,
         status       = "active",
+        started_at   = datetime.utcnow(),
     )
     db.add(sess)
     db.commit()

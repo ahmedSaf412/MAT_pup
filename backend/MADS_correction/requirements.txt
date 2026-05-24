@@ -1,0 +1,9 @@
+# -*- coding: utf-8 -*-
+# Karate Kata Corrector — Python dependencies
+# Install with: pip install -r requirements.txt
+
+opencv-python==4.13.0.92
+mediapipe==0.10.35
+numpy==2.0.2
+scipy==1.15.2
+matplotlib==3.10.9

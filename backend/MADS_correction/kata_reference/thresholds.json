@@ -1,0 +1,164 @@
+{
+  "right_elbow": {
+    "mean": 29.4,
+    "std": 12.29,
+    "min": 8.85,
+    "max": 70.29,
+    "tight": [
+      17.11,
+      41.7
+    ],
+    "loose": [
+      10.96,
+      47.85
+    ],
+    "n2_mean": 30.42,
+    "n3_mean": 38.29,
+    "max_novice_dev": 8.89,
+    "priority": "MEDIUM"
+  },
+  "left_elbow": {
+    "mean": 12.9,
+    "std": 3.08,
+    "min": 1.62,
+    "max": 22.08,
+    "tight": [
+      9.82,
+      15.98
+    ],
+    "loose": [
+      8.28,
+      17.51
+    ],
+    "n2_mean": 13.65,
+    "n3_mean": 12.16,
+    "max_novice_dev": 0.75,
+    "priority": "MEDIUM"
+  },
+  "right_shoulder": {
+    "mean": 48.69,
+    "std": 21.84,
+    "min": 18.15,
+    "max": 145.85,
+    "tight": [
+      26.85,
+      70.52
+    ],
+    "loose": [
+      15.93,
+      81.44
+    ],
+    "n2_mean": 52.54,
+    "n3_mean": 63.69,
+    "max_novice_dev": 15.01,
+    "priority": "MEDIUM"
+  },
+  "left_shoulder": {
+    "mean": 24.34,
+    "std": 17.42,
+    "min": 1.59,
+    "max": 81.13,
+    "tight": [
+      6.92,
+      41.76
+    ],
+    "loose": [
+      -1.78,
+      50.46
+    ],
+    "n2_mean": 35.19,
+    "n3_mean": 45.23,
+    "max_novice_dev": 20.89,
+    "priority": "HIGH"
+  },
+  "right_knee": {
+    "mean": 83.97,
+    "std": 32.22,
+    "min": 13.85,
+    "max": 165.72,
+    "tight": [
+      51.75,
+      116.19
+    ],
+    "loose": [
+      35.64,
+      132.3
+    ],
+    "n2_mean": 91.36,
+    "n3_mean": 100.63,
+    "max_novice_dev": 16.66,
+    "priority": "MEDIUM"
+  },
+  "left_knee": {
+    "mean": 58.88,
+    "std": 29.66,
+    "min": 1.43,
+    "max": 120.98,
+    "tight": [
+      29.22,
+      88.53
+    ],
+    "loose": [
+      14.39,
+      103.36
+    ],
+    "n2_mean": 73.69,
+    "n3_mean": 63.09,
+    "max_novice_dev": 14.81,
+    "priority": "HIGH"
+  },
+  "right_hip": {
+    "mean": 16.41,
+    "std": 12.15,
+    "min": 0.51,
+    "max": 56.92,
+    "tight": [
+      4.26,
+      28.55
+    ],
+    "loose": [
+      -1.81,
+      34.62
+    ],
+    "n2_mean": 26.61,
+    "n3_mean": 25.47,
+    "max_novice_dev": 10.2,
+    "priority": "HIGH"
+  },
+  "left_hip": {
+    "mean": 9.23,
+    "std": 8.16,
+    "min": 0.12,
+    "max": 40.64,
+    "tight": [
+      1.07,
+      17.39
+    ],
+    "loose": [
+      -3.01,
+      21.47
+    ],
+    "n2_mean": 10.94,
+    "n3_mean": 8.38,
+    "max_novice_dev": 1.71,
+    "priority": "MEDIUM"
+  },
+  "spine_lean": {
+    "mean": 100.94,
+    "std": 21.43,
+    "min": 58.08,
+    "max": 162.35,
+    "tight": [
+      79.51,
+      122.38
+    ],
+    "loose": [
+      68.79,
+      133.09
+    ],
+    "n2_mean": 83.75,
+    "n3_mean": 93.18,
+    "max_novice_dev": 17.19,
+    "priority": "HIGH"
+  }
+}

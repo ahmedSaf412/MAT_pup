@@ -14,6 +14,7 @@ class User(Base):
     __tablename__ = "users"
 
     id               = Column(Integer, primary_key=True, index=True)
+    full_name        = Column(String(255), nullable=True)
     email            = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password  = Column(Text, nullable=False)
     role             = Column(String(20), nullable=False, default="trainee")   # 'trainee' | 'coach'
@@ -33,12 +34,14 @@ class Trainee(Base):
     id         = Column(Integer, primary_key=True, index=True)
     user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     coach_id   = Column(Integer, ForeignKey("coach.id",  ondelete="SET NULL"), nullable=True)
+    requested_coach_id = Column(Integer, ForeignKey("coach.id", ondelete="SET NULL"), nullable=True)
     age        = Column(Integer, nullable=True)
     belt_level = Column(String(50), nullable=True, default="white")
     joined_at  = Column(DateTime, server_default=func.now())
 
     user     = relationship("User",  back_populates="trainee_profile")
-    coach    = relationship("Coach", back_populates="trainees", foreign_keys=[coach_id])
+    coach    = relationship("Coach", foreign_keys=[coach_id], back_populates="trainees")
+    requested_coach = relationship("Coach", foreign_keys=[requested_coach_id], back_populates="pending_trainees")
     sessions = relationship("Session",   back_populates="trainee")
     recordings = relationship("Recording", back_populates="trainee")
 
@@ -54,5 +57,6 @@ class Coach(Base):
 
     user     = relationship("User",  back_populates="coach_profile")
     trainees = relationship("Trainee", back_populates="coach", foreign_keys="Trainee.coach_id")
+    pending_trainees = relationship("Trainee", back_populates="requested_coach", foreign_keys="Trainee.requested_coach_id")
     sessions = relationship("Session", back_populates="coach")
     feedbacks = relationship("Feedback", back_populates="coach")
