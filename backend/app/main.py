@@ -55,6 +55,13 @@ async def _preload_heavy_resources():
     except Exception as e:
         print(f"[startup] [WARN] DTW cache pre-load skipped: {e}")
 
+    try:
+        # Pre-load RAG Hugging Face model
+        await loop.run_in_executor(None, _load_rag_model)
+        print("[startup] [OK] RAG Model loaded into memory!")
+    except Exception as e:
+        print(f"[startup] [WARN] RAG Model pre-load skipped: {e}")
+
 
 def _load_model_cache():
     """Trigger the classify router's lazy model load."""
@@ -70,6 +77,15 @@ def _load_dtw_caches():
     from app.rag.dtw_comparator import get_reference_sequences, _load_thresholds
     get_reference_sequences()
     _load_thresholds()
+
+
+def _load_rag_model():
+    """Trigger the RAG embedding model lazy load."""
+    try:
+        from app.rag.retriever import get_collection
+        get_collection()
+    except Exception:
+        pass
 
 
 # ── Core AI routers ────────────────────────────────────────────────────────────

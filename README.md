@@ -72,9 +72,15 @@ Best 30 frames → Bi-LSTM classifier + DTW/RAG coaching
 
 ---
 
-## ⚠️ Large Assets — Download from Google Drive
+## ⚠️ Large Assets & Database Backup — Download from Google Drive
 
 > 📦 **Google Drive:** [https://drive.google.com/drive/folders/1v1A7Pvya5DbgVy2Opws-EgFH3vIyVTpX](https://drive.google.com/drive/folders/1v1A7Pvya5DbgVy2Opws-EgFH3vIyVTpX)
+
+**What needs to be on Google Drive (for the owner to upload):**
+1. **`MA.backup`**: The PostgreSQL database backup containing all user data, sessions, and ChromaDB/PGVector embeddings.
+2. **`best_single_bilstm.keras`** (and any other `.keras` model files in `backend/app/models/Results/` since they are ignored by git).
+3. **`vector.v0.8.2-pg17.zip`**: The pgvector extension release.
+4. All the video and json files for `Animation` and `Examplers`.
 
 ### Place downloaded files like this:
 
@@ -113,7 +119,7 @@ backend/app/models/Results/
 
 ---
 
-## 1. Clone
+## 1. Clone the Repository
 
 ```bash
 git clone https://github.com/mohamedaboelenin617-web/martial-arts-trainer.git
@@ -123,7 +129,39 @@ git checkout Safwat_branch
 
 ---
 
-## 2. Backend Setup
+## 2. PostgreSQL & PGVector Setup (Mandatory)
+
+We use PostgreSQL 17 and PGVector to store the data.
+
+### Phase 1: Install PostgreSQL
+1. Download **PostgreSQL 17.9 (Windows x86-64)** from [EnterpriseDB](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads).
+2. Run the installer (simple Next -> Next).
+3. **Important:** When prompted for the installation directory, it's recommended to install it on your **D:\ drive** (Hard Disk) rather than your C:\ drive (SSD) to save space. (e.g. `D:\Program Files\PostgreSQL\17`).
+
+### Phase 2: Install PGVector Extension
+1. Download `vector.v0.8.2-pg17.zip` from Google Drive, or from the [PGVector Releases Page](https://github.com/andreiramani/pgvector_pgsql_windows/releases).
+2. Extract the zip file.
+3. Open the extracted folder. You will see `include`, `lib`, and `share` folders.
+4. Copy the contents of `share/extension` and paste them into your PostgreSQL installation path:
+   `D:\Program Files\PostgreSQL\17\share\extension` (Adjust drive letter based on Phase 1).
+5. Copy `lib/vector.dll` and paste it into:
+   `D:\Program Files\PostgreSQL\17\lib`
+6. **Restart PostgreSQL**: Open the Windows Start Menu, type `Services`, and press Enter. Find `postgresql-x64-17` in the list, right-click it, and select **Restart**.
+
+### Phase 3: Restore the Database Backup
+1. Open **pgAdmin 4**.
+2. Right-click **Databases** -> **Create** -> **Database...** and name it `martial_arts_db`.
+3. Right-click your new `martial_arts_db` and click **Query Tool**. Run the following SQL:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+4. Right-click `martial_arts_db` -> **Restore**.
+5. Select the `MA.backup` file you downloaded from Google Drive.
+6. Set the **"Role Name"** to `postgres` and click **Restore**.
+
+---
+
+## 3. Backend Setup
 
 ### Prerequisites
 - **Python 3.12** (tested on 3.12.7)
@@ -135,6 +173,7 @@ git checkout Safwat_branch
 # Windows PowerShell — from project root
 ..\cvEnv\Scripts\activate
 pip install -r backend/requirements.txt
+pip install psycopg2-binary pgvector websockets
 ```
 
 ### Configure environment
@@ -142,7 +181,8 @@ pip install -r backend/requirements.txt
 Create `backend/.env` (gitignored):
 
 ```env
-DATABASE_URL=sqlite:///./martial_arts.db
+# Ensure this matches your Postgres password
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/martial_arts_db
 SECRET_KEY=your-secret-key-change-this
 FRONTEND_URL=http://localhost:3000
 GROQ_API_KEY=<your-groq-api-key>   ← get free key at console.groq.com
