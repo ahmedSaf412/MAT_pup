@@ -70,6 +70,13 @@ Best 30 frames → Bi-LSTM classifier + DTW/RAG coaching
 - `MoveSkeletonPreview.js` renders pre-extracted MediaPipe landmarks as front/side animated canvas
 - Backend streams `.mov` files with HTTP Range request support
 
+### Full Kata Practice Mode (New!)
+A new real-time WebSockets-based mode (`/kata`) that lets users perform continuous kata sequences.
+- Maintains a **30-frame sliding window** of poses.
+- Sends live landmarks over WebSocket (`ws://localhost:8000/api/kata/ws`).
+- Evaluates poses against two models concurrently (Dual-Stem and Single V1) and streams back real-time feedback.
+- Uses inference throttling and direct tensor calls to run at 30fps without blocking the event loop.
+
 ---
 
 ## ⚠️ Large Assets & Database Backup — Download from Google Drive
@@ -78,7 +85,7 @@ Best 30 frames → Bi-LSTM classifier + DTW/RAG coaching
 
 **What needs to be on Google Drive (for the owner to upload):**
 1. **`MA.backup`**: The PostgreSQL database backup containing all user data, sessions, and ChromaDB/PGVector embeddings.
-2. **`best_single_bilstm.keras`** (and any other `.keras` model files in `backend/app/models/Results/` since they are ignored by git).
+2. **Models Folder (`backend/app/models/Results/`)**: Contains the trained Keras models (`.keras`). Specifically, `Production_Best/` which holds `best_single_bilstmV1.keras` and `best_dual_stem_fusion.keras`. (Legacy runs like `Run_May24_0044` and `Run_May24_1151` are also kept for graph tracking).
 3. **`vector.v0.8.2-pg17.zip`**: The pgvector extension release.
 4. All the video and json files for `Animation` and `Examplers`.
 
@@ -110,11 +117,12 @@ backend/app/data/
 └── karate_coords.csv
 
 backend/app/models/Results/
+├── Production_Best/
+│   ├── best_dual_stem_fusion.keras             ← active dual-stem model (Kata Mode)
+│   └── best_single_bilstmV1.keras              ← active single model (Training/Kata)
 ├── Run_May21_2217/
-│   ├── best_single_bilstm.keras                ← active trained model
-│   └── model_metadata.json                     ← model architecture info
-├── Bi-LSTM_Angles14.keras                      ← legacy model
-└── Bi-LSTM_Coords132.keras                     ← legacy model
+├── Run_May24_0044/
+└── Run_May24_1151/
 ```
 
 ---
@@ -264,6 +272,11 @@ npm run dev
 10. Open browser **DevTools → Console** to see `[AutoTrigger] energy=X.XXX` (useful for threshold debugging)
 11. Open the **🤖 chatbot** (bottom-right) and ask questions — it uses the same Groq RAG backend
 
+### Testing Full Kata Mode
+1. Click **Start Full Kata** from the Dashboard (or the `/train` page)
+2. Start the camera or upload a continuous video.
+3. Perform the moves seamlessly — the dashboard will instantly give confidence consensus using Dual-Stem and Single V1 Keras models.
+
 ### Testing the RAG API directly (Swagger)
 ```
 POST http://localhost:8000/api/rag/feedback
@@ -298,6 +311,7 @@ martial-arts-trainer/
 │       │   ├── PoseCanvas.js          ← live webcam pose overlay
 │       │   └── CorrectionPanel.js     ← classification feedback panel
 │       ├── train/page.js              ← main training page (auto-trigger + RAG)
+│       ├── kata/page.js               ← continuous kata real-time mode (websockets)
 │       ├── moves/page.js              ← move catalog
 │       └── services/api.js            ← Axios instance (auto-injects JWT)
 │
@@ -307,7 +321,8 @@ martial-arts-trainer/
         ├── routers/
         │   ├── classify.py            ← POST /api/classify (Bi-LSTM)
         │   ├── video.py               ← GET /api/video/* (streaming)
-        │   └── rag_feedback.py        ← POST /api/rag/feedback & /chat
+        │   ├── rag_feedback.py        ← POST /api/rag/feedback & /chat
+        │   └── kata.py                ← WS /api/kata/ws (Live sliding window)
         └── rag/
             ├── angle_calculator.py    ← 14 joint angles in degrees from landmarks
             ├── dtw_comparator.py      ← DTW alignment + per-joint error extraction
@@ -332,6 +347,7 @@ martial-arts-trainer/
 | `GET` | `/api/video/{move}/landmarks?view=front` | Pre-extracted JSON landmarks |
 | `POST` | `/api/rag/feedback` | 30 landmark frames → DTW → Groq coaching |
 | `POST` | `/api/rag/chat` | Free-text question → RAG → Groq answer |
+| `WS`   | `/api/kata/ws` | Real-time sliding window dual-model inference |
 
 ---
 

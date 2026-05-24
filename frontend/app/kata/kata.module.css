@@ -1,0 +1,345 @@
+/* frontend/app/kata/kata.module.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+/* ─── Page Layout ────────────────────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  background: #0a0a0f;
+  color: #e8e8f0;
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #aaa;
+  border-radius: 8px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.backBtn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.headerTitle span:first-child { font-size: 1.4rem; }
+
+.statusBadge {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.statusBadge.connecting { background: rgba(255, 180, 0, 0.15); border: 1px solid rgba(255,180,0,0.3); color: #ffb400; }
+.statusBadge.live       { background: rgba(0, 220, 120, 0.15); border: 1px solid rgba(0,220,120,0.3); color: #00dc78; }
+.statusBadge.disconnected { background: rgba(255, 70, 70, 0.15); border: 1px solid rgba(255,70,70,0.3); color: #ff4646; }
+.statusDot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.statusBadge.live .statusDot { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.7); }
+}
+
+/* ─── Main Body ───────────────────────────────────────────────────────────────── */
+.body {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  flex: 1;
+  gap: 0;
+  min-height: 0;
+}
+
+/* ─── Camera Panel ─────────────────────────────────────────────────────────────── */
+.cameraPanel {
+  position: relative;
+  background: #05050a;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+
+.cameraToolbar {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+.toolbarBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.toolbarBtn.primary {
+  background: linear-gradient(135deg, #5b21b6, #7c3aed);
+  color: #fff;
+  border-color: rgba(124,58,237,0.5);
+}
+.toolbarBtn.primary:hover { opacity: 0.85; transform: translateY(-1px); }
+.toolbarBtn.primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.toolbarBtn.secondary {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  color: #bbb;
+}
+.toolbarBtn.secondary:hover { background: rgba(255,255,255,0.09); color: #fff; }
+.toolbarBtn.danger {
+  background: rgba(220, 50, 50, 0.1);
+  border-color: rgba(220,50,50,0.3);
+  color: #ef4444;
+}
+.toolbarBtn.danger:hover { background: rgba(220,50,50,0.18); }
+
+.videoArea {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.videoFeed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videoUploadWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.uploadZone {
+  border: 2px dashed rgba(124, 58, 237, 0.4);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(124,58,237,0.04);
+}
+.uploadZone:hover {
+  border-color: rgba(124,58,237,0.7);
+  background: rgba(124,58,237,0.08);
+}
+.uploadZone h3 { font-size: 1.1rem; margin-bottom: 0.4rem; }
+.uploadZone p  { font-size: 0.82rem; color: #666; }
+
+.placeholderOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  color: #444;
+}
+.placeholderOverlay span:first-child { font-size: 3rem; }
+.placeholderOverlay p { font-size: 0.85rem; }
+
+/* ─── Dashboard Panel ─────────────────────────────────────────────────────────── */
+.dashPanel {
+  display: flex;
+  flex-direction: column;
+  padding: 1.2rem;
+  gap: 1rem;
+  overflow-y: auto;
+  background: #0d0d14;
+}
+
+.dashTitle {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #00d4ff;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+}
+
+/* ─── Buffer Bar ────────────────────────────────────────────────────────────── */
+.bufferSection {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+}
+.bufferLabel {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #888;
+  margin-bottom: 0.5rem;
+}
+.bufferTrack {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bufferFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #5b21b6, #00d4ff);
+  transition: width 0.15s ease;
+}
+
+/* ─── Model Card ────────────────────────────────────────────────────────────── */
+.modelCard {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 1rem;
+  transition: border-color 0.3s;
+}
+.modelCard.active { border-color: rgba(0, 212, 255, 0.25); }
+
+.modelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+.modelName {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c3aed;
+}
+.modelConf {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.modelConf.high   { color: #00dc78; }
+.modelConf.medium { color: #ffb400; }
+.modelConf.low    { color: #ff4646; }
+
+.moveName {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+  color: #fff;
+}
+.moveName.buffering { color: #555; }
+
+.probBars { display: flex; flex-direction: column; gap: 0.4rem; }
+.probRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+}
+.probLabel { width: 78px; color: #888; flex-shrink: 0; }
+.probTrack {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.probBar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.2s ease;
+}
+.probBar.high   { background: #00dc78; }
+.probBar.medium { background: #ffb400; }
+.probBar.low    { background: #7c3aed; }
+.probPct {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: #666;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ─── Consensus Card ─────────────────────────────────────────────────────────── */
+.consensusCard {
+  border: 1px solid rgba(0, 220, 120, 0.2);
+  background: rgba(0, 220, 120, 0.04);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+}
+.consensusCard.disagree {
+  border-color: rgba(255, 180, 0, 0.2);
+  background: rgba(255, 180, 0, 0.04);
+}
+.consensusLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #00dc78;
+  margin-bottom: 0.4rem;
+}
+.consensusCard.disagree .consensusLabel { color: #ffb400; }
+.consensusMove {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+/* ─── Frame counter ───────────────────────────────────────────────────────────── */
+.frameCounter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: #555;
+  text-align: center;
+}
+
+/* ─── Idle state ─────────────────────────────────────────────────────────────── */
+.idleHint {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #444;
+}
+.idleHint h3 { font-size: 1rem; margin-bottom: 0.5rem; color: #666; }
+.idleHint p  { font-size: 0.8rem; line-height: 1.6; }

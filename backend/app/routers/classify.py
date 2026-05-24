@@ -44,8 +44,9 @@ router = APIRouter(prefix="/api", tags=["classification"])
 CLASS_NAMES = ["gedan_barai", "gyaku_zuki", "mae_geri"]
 
 # ── Active model path (single source of truth) ─────────────────────────────
+# All production inference uses Production_Best/ exclusively.
 ACTIVE_MODEL_PATH = os.path.join(
-    "app", "models", "Results", "Run_May21_2217", "best_single_bilstm.keras"
+    "app", "models", "Results", "Production_Best", "best_single_bilstmV1.keras"
 )
 
 # ── Model cache ───────────────────────────────────────────────────────────────

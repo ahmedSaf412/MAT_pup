@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.routers import classify, video, rag_feedback, skeleton
 from app.routers import auth, sessions, recordings, live_session
+from app.routers import kata
 
 app = FastAPI(
     title="Martial Arts AI Trainer",
@@ -62,6 +63,13 @@ async def _preload_heavy_resources():
     except Exception as e:
         print(f"[startup] [WARN] RAG Model pre-load skipped: {e}")
 
+    try:
+        # Pre-load Kata Mode models (Dual-Stem + Single V1 from Production_Best)
+        await loop.run_in_executor(None, _load_kata_models)
+        print("[startup] [OK] Kata models (Dual-Stem + Single V1) loaded!")
+    except Exception as e:
+        print(f"[startup] [WARN] Kata models pre-load skipped: {e}")
+
 
 def _load_model_cache():
     """Trigger the classify router's lazy model load."""
@@ -88,6 +96,12 @@ def _load_rag_model():
         pass
 
 
+def _load_kata_models():
+    """Pre-load Production_Best Keras models for Kata Mode."""
+    from app.routers.kata import load_kata_models
+    load_kata_models()
+
+
 # ── Core AI routers ────────────────────────────────────────────────────────────
 app.include_router(classify.router)
 app.include_router(video.router)
@@ -109,6 +123,9 @@ app.include_router(recordings.router)
 
 # ── WebSocket (coach live session) ─────────────────────────────────────────────
 app.include_router(live_session.router)
+
+# ── Kata (real-time full kata WebSocket) ──────────────────────────────────────────
+app.include_router(kata.router)
 
 # ── Health endpoints ───────────────────────────────────────────────────────────
 @app.get("/")

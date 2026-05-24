@@ -170,6 +170,10 @@ export default function DashboardPage() {
             <span className={styles.actionIcon}>🎯</span>
             <span className={styles.actionText}>Start Training</span>
           </Link>
+          <Link href="/kata" className={`glass-card ${styles.actionCard}`} id="quick-kata">
+            <span className={styles.actionIcon}>🥋</span>
+            <span className={styles.actionText}>Start Full Kata</span>
+          </Link>
           <Link href="/moves" className={`glass-card ${styles.actionCard}`} id="quick-moves">
             <span className={styles.actionIcon}>📚</span>
             <span className={styles.actionText}>Browse Moves</span>

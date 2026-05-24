@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { usePose } from '../context/PoseContext';
 import PoseCanvas from '../components/PoseCanvas';
@@ -783,6 +784,29 @@ export default function TrainPage() {
                 : '▶ Start a session when you\'re ready — the AI will classify your rep'}
             </div>
           )}
+
+          {/* Full Kata Mode entry */}
+          <Link
+            href="/kata"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem',
+              padding: '0.75rem 1rem',
+              background: 'linear-gradient(135deg, rgba(91,33,182,0.2), rgba(124,58,237,0.1))',
+              border: '1px solid rgba(124,58,237,0.35)',
+              borderRadius: '10px',
+              color: '#c4b5fd',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              textDecoration: 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            🥋 Full Kata Practice Mode →
+          </Link>
         </div>
       </div>
     </div>
