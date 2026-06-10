@@ -1,8 +1,10 @@
 # backend/app/main.py
 
 import asyncio
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
 from app.routers import classify, video, rag_feedback, skeleton
@@ -37,17 +39,17 @@ async def startup_event():
 
 async def _preload_heavy_resources():
     """
-    Background pre-warm task.  Errors here are logged but never crash the server.
-    The classify endpoint's model is already loaded lazily by classify.py on first
-    request, but we trigger it early so the first real request feels instant.
+    Background pre-warm task — XGBoost edition (feat-xgb-classifier).
+    pickle.load() is fast (~50 ms), so both models load in under 200 ms total.
+    Errors here are logged but never crash the server.
     """
     loop = asyncio.get_event_loop()
     try:
-        # Pre-load the Keras Bi-LSTM model (runs in thread pool to avoid blocking)
+        # Pre-load the XGBoost classifier used by POST /api/classify
         await loop.run_in_executor(None, _load_model_cache)
-        print("[startup] [OK] Bi-LSTM model pre-loaded")
+        print("[startup] [OK] XGBoost classifier pre-loaded")
     except Exception as e:
-        print(f"[startup] [WARN] Model pre-load skipped: {e}")
+        print(f"[startup] [WARN] Classifier pre-load skipped: {e}")
 
     try:
         # Pre-warm MADS reference sequences + thresholds into memory
@@ -57,18 +59,18 @@ async def _preload_heavy_resources():
         print(f"[startup] [WARN] DTW cache pre-load skipped: {e}")
 
     try:
-        # Pre-load RAG Hugging Face model
+        # Pre-load RAG Hugging Face embedding model
         await loop.run_in_executor(None, _load_rag_model)
         print("[startup] [OK] RAG Model loaded into memory!")
     except Exception as e:
         print(f"[startup] [WARN] RAG Model pre-load skipped: {e}")
 
     try:
-        # Pre-load Kata Mode models (Dual-Stem + Single V1 from Production_Best)
+        # Pre-load the XGBoost model used by the Kata WebSocket
         await loop.run_in_executor(None, _load_kata_models)
-        print("[startup] [OK] Kata models (Dual-Stem + Single V1) loaded!")
+        print("[startup] [OK] Kata XGBoost model loaded!")
     except Exception as e:
-        print(f"[startup] [WARN] Kata models pre-load skipped: {e}")
+        print(f"[startup] [WARN] Kata model pre-load skipped: {e}")
 
 
 def _load_model_cache():
@@ -128,6 +130,12 @@ app.include_router(live_session.router)
 app.include_router(kata.router)
 
 # ── Health endpoints ───────────────────────────────────────────────────────────
+
+# Serve uploaded video recordings so the coach player can stream them
+UPLOAD_DIR = Path(__file__).resolve().parents[1] / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
 @app.get("/")
 async def root():
     return {"message": "Martial Arts AI Trainer API is running!", "version": "2.0.0"}

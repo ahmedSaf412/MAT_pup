@@ -2,15 +2,31 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useAuth } from '../context/AuthContext';
 import { usePose } from '../context/PoseContext';
-import PoseCanvas from '../components/PoseCanvas';
-import CorrectionPanel from '../components/CorrectionPanel';
-import MoveSkeletonPreview from '../components/MoveSkeletonPreview';
-import RepResultPanel from '../components/RepResultPanel';
 import api from '../services/api';
 import { extract14Angles } from '../utils/angleCalculator';
 import styles from './train.module.css';
+
+// ─── Heavy client-side components — loaded lazily so Turbopack does not
+//     bundle them in the initial compilation pass (fixes 50 s cold start). ───
+const PoseCanvas = dynamic(() => import('../components/PoseCanvas'), {
+  ssr: false,
+  loading: () => null,
+});
+const CorrectionPanel = dynamic(() => import('../components/CorrectionPanel'), {
+  ssr: false,
+  loading: () => null,
+});
+const MoveSkeletonPreview = dynamic(() => import('../components/MoveSkeletonPreview'), {
+  ssr: false,
+  loading: () => <div style={{ color: '#555', padding: '1rem', textAlign: 'center' }}>Loading preview…</div>,
+});
+const RepResultPanel = dynamic(() => import('../components/RepResultPanel'), {
+  ssr: false,
+  loading: () => null,
+});
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AVAILABLE_MOVES = [
@@ -119,6 +135,10 @@ export default function TrainPage() {
   const repCountRef         = useRef(0);
   const isMediaPlayingRef   = useRef(false);
   const selectedMoveRef     = useRef('free');
+
+  // ── MediaRecorder — webcam recording for coach review ──────────────────
+  const mediaRecorderRef    = useRef(null);
+  const recordedChunksRef   = useRef([]);   // collects webm blobs
 
   // Rolling circular buffer — always fills regardless of state
   // Each entry: { angles (0-1 ×14), landmarks ({x,y,z,vis}×33) }
@@ -294,6 +314,22 @@ export default function TrainPage() {
       setCameraActive(true);
       isMediaPlayingRef.current = true;
       requestAnimationFrame(processFrame);
+
+      // ── Start recording the webcam feed (webm) ─────────────────────────
+      try {
+        recordedChunksRef.current = [];
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9'
+          : 'video/webm';
+        const recorder = new MediaRecorder(stream, { mimeType });
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+        };
+        recorder.start(1000);   // collect chunks every 1 s
+        mediaRecorderRef.current = recorder;
+      } catch (recErr) {
+        console.warn('[recording] MediaRecorder not supported:', recErr);
+      }
     } catch (err) {
       console.error('Camera error:', err);
       setCameraError('Could not access camera. Please allow camera permissions.');
@@ -322,6 +358,35 @@ export default function TrainPage() {
       setCameraError('Failed to load video.');
     }
   };
+
+  // ── Upload recorded video to backend ────────────────────────────────────
+  const uploadRecording = useCallback(async (sessionId) => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') return;
+
+    return new Promise((resolve) => {
+      recorder.onstop = async () => {
+        const chunks = recordedChunksRef.current;
+        if (!chunks.length) { resolve(); return; }
+
+        const blob     = new Blob(chunks, { type: 'video/webm' });
+        const formData = new FormData();
+        formData.append('file', blob, `session_${sessionId}.webm`);
+        if (sessionId) formData.append('session_id', sessionId);
+
+        try {
+          await api.post('/api/recordings/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          console.log('[recording] Uploaded session recording.');
+        } catch (err) {
+          console.warn('[recording] Upload failed:', err.message);
+        }
+        resolve();
+      };
+      recorder.stop();
+    });
+  }, []);
 
   // ── Session management ────────────────────────────────────────────────────
   const startTraining = useCallback(() => {
@@ -389,7 +454,7 @@ export default function TrainPage() {
       const response = await api.post('/api/classify', {
         frames: payloadFrames,
         feature_set: 'landmarks',
-        model: 'Bi-LSTM',
+        model: 'XGBoost',
         session_id: activeSessionIdRef.current,
         input_mode: 'camera',
         frame_timestamp: Date.now() / 1000
@@ -464,19 +529,30 @@ export default function TrainPage() {
     }
   };
 
-  const stopTraining = useCallback(() => {
+  const stopTraining = useCallback(async () => {
     setIsTraining(false);
     setIsArmed(false);
     setIsRecordingRep(false);
     isArmedRef.current     = false;
     isRecordingRef.current = false;
     setFramesRecorded(0);
-    if (timerRef.current)   clearInterval(timerRef.current);
+    if (timerRef.current)      clearInterval(timerRef.current);
     if (armTimeoutRef.current) clearTimeout(armTimeoutRef.current);
-  }, []);
+
+    // Upload webcam recording for the coach to review
+    if (activeSessionIdRef.current) {
+      await uploadRecording(activeSessionIdRef.current);
+    }
+  }, [uploadRecording]);
 
   const stopCamera = useCallback(() => {
     isMediaPlayingRef.current = false;
+    // Stop MediaRecorder cleanly before killing the stream
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current  = null;
+    recordedChunksRef.current = [];
     if (videoRef.current) {
       if (videoRef.current.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(t => t.stop());
