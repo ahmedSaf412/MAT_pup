@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './RepResultPanel.module.css';
 
-// Re-use logic similar to MoveSkeletonPreview but to show two skeletons side-by-side
+// ── Pose connections ───────────────────────────────────────────────────────────
 const POSE_CONNECTIONS = [
   [0,1],[1,2],[2,3],[3,7],[0,4],[4,5],[5,6],[6,8],
   [9,10],[11,12],
@@ -34,45 +34,48 @@ function angle3D(lms, a, b, c) {
   return Math.round((Math.acos(Math.max(-1.0, Math.min(1.0, dot / mag))) * 180) / Math.PI);
 }
 
-function project(lm, rotY, CX, CY, SXYZ, FOCAL) {
-  // Landmarks are normalized 0-1, so x-0.5 centers them
+function project(lm, rotY, rotX, CX, CY, SXYZ, FOCAL) {
   const wx = (lm.x - 0.5) * SXYZ;
   const wy = (lm.y - 0.5) * SXYZ;
-  // If no z, just assume 0. Z is also roughly relative
   const wz = (lm.z || 0) * SXYZ * 0.6;
+
+  // Y-axis rotation (left/right drag)
   const rx =  wx * Math.cos(rotY) - wz * Math.sin(rotY);
   const rz =  wx * Math.sin(rotY) + wz * Math.cos(rotY);
-  const s  = FOCAL / (FOCAL + rz);
-  return { sx: CX + rx * s, sy: CY + wy * s, sz: rz, vis: lm.visibility ?? 1 };
+  // X-axis rotation (up/down drag)
+  const ry2 = wy * Math.cos(rotX) - rz * Math.sin(rotX);
+  const rz2 = wy * Math.sin(rotX) + rz * Math.cos(rotX);
+
+  const s = FOCAL / (FOCAL + rz2);
+  return { sx: CX + rx * s, sy: CY + ry2 * s, sz: rz2, vis: lm.visibility ?? 1 };
 }
 
 const MADS_ANGLES = [
-  { name: 'R-Elbow', pts: [12, 14, 16], center: 14 },
-  { name: 'L-Elbow', pts: [11, 13, 15], center: 13 },
+  { name: 'R-Elbow',    pts: [12, 14, 16], center: 14 },
+  { name: 'L-Elbow',    pts: [11, 13, 15], center: 13 },
   { name: 'R-Shoulder', pts: [14, 12, 24], center: 12 },
   { name: 'L-Shoulder', pts: [13, 11, 23], center: 11 },
-  { name: 'R-Knee', pts: [24, 26, 28], center: 26 },
-  { name: 'L-Knee', pts: [23, 25, 27], center: 25 },
-  { name: 'R-Hip', pts: [12, 24, 26], center: 24 },
-  { name: 'L-Hip', pts: [11, 23, 25], center: 23 },
-  { name: 'Spine', pts: [0, 23, 25], center: 24 } // Approx center between 23/24 for spine
+  { name: 'R-Knee',     pts: [24, 26, 28], center: 26 },
+  { name: 'L-Knee',     pts: [23, 25, 27], center: 25 },
+  { name: 'R-Hip',      pts: [12, 24, 26], center: 24 },
+  { name: 'L-Hip',      pts: [11, 23, 25], center: 23 },
 ];
 
-function drawPanel(ctx, lms, rotY, CX, CY, SXYZ, FOCAL, clipLeft, clipRight, label, drawAngles) {
+function drawPanel(ctx, lms, rotY, rotX, CX, CY, SXYZ, FOCAL, clipLeft, clipRight, label, drawAngles) {
   if (!lms) return;
 
-  const pts = lms.map(lm => project(lm, rotY, CX, CY, SXYZ, FOCAL));
+  const pts = lms.map(lm => project(lm, rotY, rotX, CX, CY, SXYZ, FOCAL));
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(clipLeft, 0, clipRight - clipLeft, ctx.canvas.height);
   ctx.clip();
 
-  // Bones
+  // Bones (depth-sorted for painter's algo)
   const lines = POSE_CONNECTIONS
     .filter(([i, j]) => pts[i] && pts[j] && pts[i].vis > 0.25 && pts[j].vis > 0.25)
-    .map(([i, j]) => ({ i, j, depth: (pts[i].sz + pts[j].sz) / 2 }))
-    .sort((a, b) => b.depth - a.depth);
+    .map(([i, j])    => ({ i, j, depth: (pts[i].sz + pts[j].sz) / 2 }))
+    .sort((a, b)     => b.depth - a.depth);
 
   lines.forEach(({ i, j, depth }) => {
     const p1 = pts[i], p2 = pts[j];
@@ -83,7 +86,7 @@ function drawPanel(ctx, lms, rotY, CX, CY, SXYZ, FOCAL, clipLeft, clipRight, lab
     ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
   });
 
-  // Joints
+  // Joints (depth-sorted)
   pts
     .map((p, idx) => ({ ...p, idx }))
     .filter(p => p.vis > 0.25)
@@ -99,7 +102,7 @@ function drawPanel(ctx, lms, rotY, CX, CY, SXYZ, FOCAL, clipLeft, clipRight, lab
       ctx.restore();
     });
 
-  // Draw Angles if in Slow Mo
+  // Angle labels in Slow Mo
   if (drawAngles) {
     ctx.font = 'bold 11px sans-serif';
     ctx.textAlign = 'center';
@@ -125,13 +128,88 @@ function drawPanel(ctx, lms, rotY, CX, CY, SXYZ, FOCAL, clipLeft, clipRight, lab
   ctx.restore();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DualSkeletonCanvas — drag to rotate, auto-rotate when not dragging
+// ─────────────────────────────────────────────────────────────────────────────
 function DualSkeletonCanvas({ refFrames, traineeFrames, fps }) {
-  const canvasRef = useRef(null);
-  const rafRef = useRef(null);
-  const frameIdx = useRef(0);
-  const lastTick = useRef(0);
-  const angle = useRef(0);
+  const canvasRef  = useRef(null);
+  const rafRef     = useRef(null);
+  const frameIdx   = useRef(0);
+  const lastTick   = useRef(0);
 
+  // Rotation state (shared both panels when dragging canvas as a whole;
+  // each panel has independent control via the ← / → buttons below)
+  const rotY    = useRef(0);          // Y-rotation (horizontal drag)
+  const rotX    = useRef(0.15);       // X-rotation (vertical drag — slight downward tilt)
+  const autoRot = useRef(true);       // auto-rotate when idle
+
+  // Drag state
+  const drag    = useRef({ active: false, lastX: 0, lastY: 0 });
+
+  // ── Mouse / Touch handlers ──────────────────────────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onDown = (clientX, clientY) => {
+      drag.current = { active: true, lastX: clientX, lastY: clientY };
+      autoRot.current = false;
+      canvas.style.cursor = 'grabbing';
+    };
+    const onMove = (clientX, clientY) => {
+      if (!drag.current.active) return;
+      const dx = clientX - drag.current.lastX;
+      const dy = clientY - drag.current.lastY;
+      rotY.current += dx * 0.008;           // 0.008 rad per pixel — feels natural
+      rotX.current += dy * 0.006;
+      // Clamp X so the skeleton doesn't flip upside-down
+      rotX.current = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, rotX.current));
+      drag.current.lastX = clientX;
+      drag.current.lastY = clientY;
+    };
+    const onUp = () => {
+      drag.current.active = false;
+      canvas.style.cursor = 'grab';
+      // Resume slow auto-rotation after 2 s of inactivity
+      setTimeout(() => { autoRot.current = true; }, 2000);
+    };
+
+    // Mouse
+    const mouseDown  = (e) => { e.preventDefault(); onDown(e.clientX, e.clientY); };
+    const mouseMove  = (e) => { onMove(e.clientX, e.clientY); };
+    const mouseUp    = ()  => { onUp(); };
+
+    // Touch (single-finger drag)
+    const touchStart = (e) => { if (e.touches.length === 1) { e.preventDefault(); onDown(e.touches[0].clientX, e.touches[0].clientY); } };
+    const touchMove  = (e) => { if (e.touches.length === 1) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); } };
+    const touchEnd   = ()  => { onUp(); };
+
+    canvas.addEventListener('mousedown',  mouseDown,  { passive: false });
+    window.addEventListener('mousemove',  mouseMove);
+    window.addEventListener('mouseup',    mouseUp);
+    canvas.addEventListener('touchstart', touchStart, { passive: false });
+    canvas.addEventListener('touchmove',  touchMove,  { passive: false });
+    canvas.addEventListener('touchend',   touchEnd);
+    canvas.style.cursor = 'grab';
+
+    return () => {
+      canvas.removeEventListener('mousedown',  mouseDown);
+      window.removeEventListener('mousemove',  mouseMove);
+      window.removeEventListener('mouseup',    mouseUp);
+      canvas.removeEventListener('touchstart', touchStart);
+      canvas.removeEventListener('touchmove',  touchMove);
+      canvas.removeEventListener('touchend',   touchEnd);
+    };
+  }, []);
+
+  // ── Snap buttons: preset angles ────────────────────────────────────────────
+  const snapFront = () => { rotY.current = 0;           rotX.current = 0.15;  autoRot.current = false; };
+  const snapSide  = () => { rotY.current = Math.PI / 2; rotX.current = 0.1;   autoRot.current = false; };
+  const snapBack  = () => { rotY.current = Math.PI;     rotX.current = 0.15;  autoRot.current = false; };
+  const snapTop   = () => { rotY.current = 0;           rotX.current = -1.2;  autoRot.current = false; };
+  const resetAuto = () => { rotY.current = 0;           rotX.current = 0.15;  autoRot.current = true;  };
+
+  // ── RAF draw loop ──────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -143,28 +221,26 @@ function DualSkeletonCanvas({ refFrames, traineeFrames, fps }) {
     const FOCAL = 500;
     const MS_PER_FRAME = 1000 / (fps || 30);
 
-    const CX_LEFT = HALF / 2;
+    const CX_LEFT  = HALF / 2;
     const CX_RIGHT = HALF + HALF / 2;
     const CY = H / 2 + 20;
 
     function draw(ts) {
+      // Advance animation frame
       if (ts - lastTick.current >= MS_PER_FRAME) {
-        if (refFrames?.length || traineeFrames?.length) {
-          const maxLen = Math.max(refFrames?.length || 0, traineeFrames?.length || 0);
-          if (maxLen > 0) {
-            frameIdx.current = (frameIdx.current + 1) % maxLen;
-          }
-        }
+        const maxLen = Math.max(refFrames?.length || 0, traineeFrames?.length || 0);
+        if (maxLen > 0) frameIdx.current = (frameIdx.current + 1) % maxLen;
         lastTick.current = ts;
       }
-      angle.current += 0.007;
-      const rotFront = Math.sin(angle.current * 0.4) * 0.35;
+
+      // Auto-rotate slowly when idle
+      if (autoRot.current) rotY.current += 0.007;
 
       // Background
       ctx.fillStyle = '#0b0f19';
       ctx.fillRect(0, 0, W, H);
 
-      // Divider line
+      // Divider
       ctx.strokeStyle = 'rgba(255,255,255,0.06)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(HALF, 0); ctx.lineTo(HALF, H); ctx.stroke();
@@ -182,15 +258,16 @@ function DualSkeletonCanvas({ refFrames, traineeFrames, fps }) {
         }
       });
 
-      const fi = frameIdx.current;
-      const refLms = refFrames?.[fi % (refFrames?.length || 1)] || null;
-      const trLms = traineeFrames?.[fi % (traineeFrames?.length || 1)] || null;
+      // Draw both panels with shared rotation
+      const fi   = frameIdx.current;
+      const refLms = refFrames?.[fi % (refFrames?.length || 1)]   || null;
+      const trLms  = traineeFrames?.[fi % (traineeFrames?.length || 1)] || null;
       const isSlowMo = fps <= 5;
 
-      drawPanel(ctx, refLms, rotFront, CX_LEFT, CY, SXYZ * 1.0, FOCAL, 0, HALF, 'MASTER REFERENCE', isSlowMo);
-      drawPanel(ctx, trLms, rotFront, CX_RIGHT, CY, SXYZ * 1.0, FOCAL, HALF, W, 'YOUR CAPTURE', isSlowMo);
+      drawPanel(ctx, refLms, rotY.current, rotX.current, CX_LEFT,  CY, SXYZ, FOCAL, 0,    HALF, 'MASTER REFERENCE', isSlowMo);
+      drawPanel(ctx, trLms,  rotY.current, rotX.current, CX_RIGHT, CY, SXYZ, FOCAL, HALF, W,    'YOUR CAPTURE',     isSlowMo);
 
-      // Loading/Empty states
+      // Empty-state messages
       const showMsg = (txt, cx, clipL, clipR) => {
         ctx.save();
         ctx.beginPath(); ctx.rect(clipL, 0, clipR - clipL, H); ctx.clip();
@@ -199,9 +276,17 @@ function DualSkeletonCanvas({ refFrames, traineeFrames, fps }) {
         ctx.fillText(txt, cx, CY);
         ctx.restore();
       };
+      if (!refFrames)    showMsg('Loading Reference...', CX_LEFT,  0,    HALF);
+      if (!traineeFrames) showMsg('No Capture Data',    CX_RIGHT, HALF, W);
 
-      if (!refFrames) showMsg('Loading Reference...', CX_LEFT, 0, HALF);
-      if (!traineeFrames) showMsg('No Capture Data', CX_RIGHT, HALF, W);
+      // Drag hint (shown only when auto-rotating)
+      if (autoRot.current) {
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('🖱 Drag to rotate · Pinch to tilt', W / 2, 8);
+      }
 
       rafRef.current = requestAnimationFrame(draw);
     }
@@ -211,24 +296,60 @@ function DualSkeletonCanvas({ refFrames, traineeFrames, fps }) {
   }, [refFrames, traineeFrames, fps]);
 
   return (
-    <canvas ref={canvasRef} width={800} height={400} className={styles.skeletonCanvas} />
+    <div style={{ position: 'relative' }}>
+      {/* View-angle snap buttons */}
+      <div style={{
+        display: 'flex', gap: '6px', marginBottom: '8px',
+        justifyContent: 'center', flexWrap: 'wrap',
+      }}>
+        {[
+          { label: '⬛ Front',    fn: snapFront },
+          { label: '◀  Side',    fn: snapSide  },
+          { label: '⬛ Back',    fn: snapBack  },
+          { label: '⬇️  Top',    fn: snapTop   },
+          { label: '↺ Auto',     fn: resetAuto },
+        ].map(({ label, fn }) => (
+          <button
+            key={label}
+            onClick={fn}
+            style={{
+              fontSize: '0.72rem', padding: '3px 10px',
+              borderRadius: '999px', border: '1px solid rgba(0,212,255,0.3)',
+              background: 'rgba(0,212,255,0.08)', color: '#00d4ff',
+              cursor: 'pointer', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,212,255,0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,212,255,0.08)'}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={400}
+        className={styles.skeletonCanvas}
+        title="Drag to rotate · Touch-drag on mobile"
+      />
+
+      <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: '4px' }}>
+        🖱 Drag canvas to rotate · 📱 Touch-drag on mobile
+      </p>
+    </div>
   );
 }
 
+// ── RepResultPanel ─────────────────────────────────────────────────────────────
 export default function RepResultPanel({ moveId, moveName, confidence, inferenceMs, traineeFrames, refFrames, aiFeedback, errors }) {
   const [slowMo, setSlowMo] = useState(false);
 
-  // Format the feedback text to handle markdown-like basic formatting if needed
-  // For now, simply render the string in a structured way
   const formatFeedback = (text) => {
     if (!text) return null;
     return text.split('\n').map((line, i) => {
-      if (line.trim().startsWith('-')) {
-        return <li key={i}>{line.replace(/^-/, '').trim()}</li>;
-      }
-      if (line.trim().length === 0) {
-        return <br key={i} />;
-      }
+      if (line.trim().startsWith('-')) return <li key={i}>{line.replace(/^-/, '').trim()}</li>;
+      if (line.trim().length === 0)    return <br key={i} />;
       return <p key={i}>{line}</p>;
     });
   };
