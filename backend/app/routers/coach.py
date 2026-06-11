@@ -150,3 +150,55 @@ def get_trainee_details(trainee_id: int, current_user: User = Depends(get_curren
             "scores": [80, 85, 90] # Mocked for now until per-move accuracy is tracked
         }
     }
+
+
+# ── GET /api/coach/trainee/{trainee_id}/recordings ────────────────────────────
+from app.models.session import Recording
+
+@router.get("/trainee/{trainee_id}/recordings")
+def get_trainee_recordings(
+    trainee_id:   int,
+    current_user: User    = Depends(get_current_user),
+    db:           Session = Depends(get_db),
+):
+    """
+    Return all recorded video clips for a specific trainee.
+    Only accessible by a coach who has this trainee assigned.
+    """
+    if current_user.role != "coach":
+        raise HTTPException(403, "Not a coach")
+
+    coach = current_user.coach_profile
+    if not coach:
+        raise HTTPException(404, "Coach profile not found")
+
+    # Verify this trainee belongs to the requesting coach
+    trainee = db.query(Trainee).filter(
+        Trainee.id == trainee_id,
+        Trainee.coach_id == coach.id,
+    ).first()
+    if not trainee:
+        raise HTTPException(404, "Trainee not found or not assigned to you")
+
+    recordings = (
+        db.query(Recording)
+          .filter(Recording.trainee_id == trainee_id)
+          .order_by(desc(Recording.created_at))
+          .all()
+    )
+
+    result = []
+    for rec in recordings:
+        # Build a public-facing URL path the frontend can use to stream the video
+        # The file is served by a static-files mount at /uploads
+        filename = rec.file_path.replace("\\", "/").split("/uploads/")[-1]
+        result.append({
+            "id":               rec.id,
+            "session_id":       rec.session_id,
+            "file_url":         f"/uploads/{filename}",
+            "duration_seconds": rec.duration_seconds,
+            "status":           rec.status,
+            "created_at":       rec.created_at.isoformat() if rec.created_at else None,
+        })
+
+    return result

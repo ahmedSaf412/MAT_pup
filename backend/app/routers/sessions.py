@@ -41,22 +41,40 @@ def start_session(
     return sess
 
 
-@router.post("/{session_id}/end", response_model=SessionOut)
+@router.post("/{session_id}/end")
 def end_session(
     session_id:   int,
     current_user: User    = Depends(require_trainee),
     db:           Session = Depends(get_db),
 ):
-    """Mark a session as ended."""
+    """
+    End a session.
+    - If the session has NO detections (user never performed a move), delete
+      the row entirely — it is a ghost session.
+    - Otherwise mark it as ended and record ended_at.
+    """
     sess = db.query(DBSession).filter(DBSession.id == session_id).first()
     if not sess:
-        raise HTTPException(404, f"Session {session_id} not found")
+        # Already deleted or never existed — not an error
+        return {"status": "deleted", "reason": "session not found"}
+
+    detection_count = (
+        db.query(Detection)
+          .filter(Detection.session_id == session_id)
+          .count()
+    )
+
+    if detection_count == 0:
+        db.delete(sess)
+        db.commit()
+        return {"status": "deleted", "reason": "no detections — ghost session removed"}
 
     sess.status   = "ended"
     sess.ended_at = datetime.utcnow()
     db.commit()
     db.refresh(sess)
     return sess
+
 
 
 @router.get("/{session_id}/detections", response_model=list[DetectionOut])

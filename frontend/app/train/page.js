@@ -342,11 +342,16 @@ export default function TrainPage() {
     if (!file) return;
     try {
       stopCamera();
-      const videoUrl  = URL.createObjectURL(file);
-      const video     = videoRef.current;
+      const video = videoRef.current;
       video.srcObject = null;
-      video.src       = videoUrl;
+      video.src       = URL.createObjectURL(file);
       video.loop      = true;
+
+      // onerror fires for truly undecodable files (wrong container, DRM, etc.)
+      video.onerror = () => {
+        setCameraError('❌ Could not play this video. Try re-encoding it as H.264 MP4 (use HandBrake or VLC).');
+      };
+
       await video.play();
       setCameraActive(false);
       setIsVideoUploaded(true);
@@ -355,7 +360,7 @@ export default function TrainPage() {
       requestAnimationFrame(processFrame);
     } catch (err) {
       console.error('Video upload error:', err);
-      setCameraError('Failed to load video.');
+      setCameraError('Failed to play video. Try a different file.');
     }
   };
 
@@ -623,7 +628,7 @@ export default function TrainPage() {
           <div className={styles.videoContainer}>
             <video
               ref={videoRef}
-              className={styles.video}
+              className={`${styles.video} ${cameraActive && !isVideoUploaded ? styles.mirrored : ''}`}
               playsInline
               muted={!isVideoUploaded}
               controls={isVideoUploaded}
@@ -632,8 +637,8 @@ export default function TrainPage() {
               <PoseCanvas
                 landmarks={landmarks}
                 corrections={currentCorrection.corrections}
-                width={640}
-                height={480}
+                videoRef={videoRef}
+                mirrored={cameraActive && !isVideoUploaded}
               />
             )}
 
