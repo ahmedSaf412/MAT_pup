@@ -24,9 +24,6 @@ const nextConfig = {
 
   // 4. Suppress the noisy "multiple roots" warning in console.
   //    (Already handled by turbopack.root above, but kept explicit.)
-  logging: {
-    fetches: { fullUrl: false },
-  },
 };
 
 export default nextConfig;

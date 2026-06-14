@@ -66,6 +66,7 @@ export default function KataPage() {
   const poseRef        = useRef(null);
   const streamRef      = useRef(null);
   const rafRef         = useRef(null);
+  const lastVideoTime  = useRef(-1);
   const sendingRef     = useRef(false);
   const landmarksRef   = useRef(null);   // latest landmark array for canvas draw
 
@@ -166,12 +167,54 @@ export default function KataPage() {
     poseRef.current = globalPose;
   }, [drawSkeleton, sendFrame]);
 
-  // ─── Frame pump ──────────────────────────────────────────────────────────────
+  // ─── Process Video Offline (Perfect Sync) ──────────────────────────────────
+  const processVideoOffline = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video || !poseRef.current) return;
+
+    video.pause();
+    
+    // Seek to beginning
+    await new Promise(resolve => {
+      const handler = () => { video.removeEventListener('seeked', handler); resolve(); };
+      video.addEventListener('seeked', handler);
+      if (video.currentTime === 0) handler();
+      else video.currentTime = 0;
+    });
+
+    // Step through the video frame by frame (assuming 30fps = 0.0333s per frame)
+    while (sendingRef.current && video.currentTime < video.duration) {
+      if (!poseRef.current) break;
+      
+      // Process current frame
+      await poseRef.current.send({ image: video });
+
+      const nextTime = video.currentTime + (1 / 30);
+      if (nextTime >= video.duration) break;
+
+      // Seek to next frame and wait for decode
+      await new Promise(resolve => {
+        const handler = () => { video.removeEventListener('seeked', handler); resolve(); };
+        video.addEventListener('seeked', handler);
+        video.currentTime = nextTime;
+      });
+    }
+    
+    // Stop analysis when finished
+    sendingRef.current = false;
+  }, []);
+
+  // ─── Frame pump (Camera Only) ────────────────────────────────────────────────
   const pumpFrames = useCallback(() => {
     const pump = async () => {
       if (!sendingRef.current) return;
       if (videoRef.current && poseRef.current && !videoRef.current.paused) {
-        await poseRef.current.send({ image: videoRef.current });
+        const currentTime = videoRef.current.currentTime;
+        // Only process if the video has actually advanced to a new frame
+        if (currentTime !== lastVideoTime.current) {
+          lastVideoTime.current = currentTime;
+          await poseRef.current.send({ image: videoRef.current });
+        }
       }
       rafRef.current = requestAnimationFrame(pump);
     };
@@ -203,13 +246,20 @@ export default function KataPage() {
     setMode('video');
     const url = URL.createObjectURL(file);
     videoRef.current.src = url;
-    videoRef.current.load();
-    await videoRef.current.play();
+    
+    // Wait for video metadata so we know duration
+    await new Promise(r => {
+      videoRef.current.onloadedmetadata = r;
+      videoRef.current.load();
+    });
+
     await initMediaPipe();
     openWS();
     sendingRef.current = true;
-    pumpFrames();
-  }, [initMediaPipe, openWS, pumpFrames]);
+    
+    // Start perfect frame-by-frame offline analysis (no pumpFrames needed)
+    processVideoOffline();
+  }, [initMediaPipe, openWS, processVideoOffline]);
 
   // ─── Stop ─────────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {
@@ -382,7 +432,7 @@ export default function KataPage() {
               <h3>How it works</h3>
               <p>
                 The AI maintains a <strong>30-frame sliding window</strong> over your
-                pose landmarks. The Dual-Stem model classifies your move in real-time
+                pose landmarks. The XGBoost classifier predicts your move in real-time
                 as frames arrive — no buffering delay once the window is full.
               </p>
               <p style={{ marginTop: '0.6rem', color: '#666' }}>
@@ -405,7 +455,7 @@ export default function KataPage() {
               {/* Live result card — Dual-Stem only */}
               <div className={`${styles.modelCard} ${liveResult ? styles.active : ''}`}>
                 <div className={styles.modelHeader}>
-                  <span className={styles.modelName}>🧠 Dual-Stem AI</span>
+                  <span className={styles.modelName}>🌲 XGBoost Classifier</span>
                   {liveResult && (
                     <span className={`${styles.modelConf} ${styles[confClass(liveResult.confidence)]}`}>
                       {(liveResult.confidence * 100).toFixed(0)}%
