@@ -53,20 +53,17 @@ _kata_models: dict = {}
 
 
 def load_kata_models():
-    """Load both Production_Best Keras models into the shared cache."""
+    """Load the Dual-Stem Production_Best Keras model into the shared cache."""
     if "dual" in _kata_models:
         return  # already loaded
 
     import tensorflow as tf
     try:
         _kata_models["dual"]  = tf.keras.models.load_model(DUAL_MODEL_PATH)
-        _kata_models["sinv1"] = tf.keras.models.load_model(SINV1_MODEL_PATH)
         # Warm-up: run a dummy inference to JIT-compile the TF graph
         dummy_102 = np.zeros((1, SEQ_LEN, UPPER_DIM + LOWER_DIM), dtype=np.float32)
         _kata_models["dual"]([dummy_102[:, :, :UPPER_DIM], dummy_102[:, :, UPPER_DIM:]], training=False)
-        _kata_models["sinv1"](dummy_102, training=False)
         print(f"[kata] ✅ Dual-Stem model loaded & warmed up")
-        print(f"[kata] ✅ Single-V1 model loaded & warmed up")
     except Exception as e:
         print(f"[kata] ⚠️  Model load error: {e}")
 
@@ -77,19 +74,18 @@ import tensorflow as tf   # noqa: E402 — imported here so it's not a hard dep 
 
 def _run_inference(window_list: list) -> dict:
     """
-    Run both models on a full 30-frame window using direct tensor calling.
-    This avoids Keras batching overhead vs model.predict().
+    Run only the Dual-Stem model on a full 30-frame window using direct tensor calling.
+    This avoids Keras batching overhead vs model.predict() and saves CPU cycles.
 
     Args:
         window_list: list[list[float]] of shape (30, 102)
     Returns:
-        dict with dual_stem, single_v1, consensus
+        dict with move, confidence, all_probs (flat structure for frontend)
     """
     seq = np.array(window_list, dtype=np.float32)   # (30, 102)
 
     upper = tf.constant(seq[np.newaxis, :, :UPPER_DIM])  # (1, 30, 54)
     lower = tf.constant(seq[np.newaxis, :, UPPER_DIM:])  # (1, 30, 48)
-    full  = tf.constant(seq[np.newaxis])                  # (1, 30, 102)
 
     results = {}
 
@@ -97,24 +93,11 @@ def _run_inference(window_list: list) -> dict:
     if "dual" in _kata_models:
         p_dual = _kata_models["dual"]([upper, lower], training=False).numpy()[0]
         idx    = int(np.argmax(p_dual))
-        results["dual_stem"] = {
+        results = {
             "move":       CLASS_NAMES[idx],
             "confidence": float(round(float(np.max(p_dual)), 4)),
             "all_probs":  [round(float(v), 4) for v in p_dual],
         }
-
-    if "sinv1" in _kata_models:
-        p_v1 = _kata_models["sinv1"](full, training=False).numpy()[0]
-        idx  = int(np.argmax(p_v1))
-        results["single_v1"] = {
-            "move":       CLASS_NAMES[idx],
-            "confidence": float(round(float(np.max(p_v1)), 4)),
-            "all_probs":  [round(float(v), 4) for v in p_v1],
-        }
-
-    # ── Consensus ─────────────────────────────────────────────────────────────
-    moves = [r["move"] for r in results.values()]
-    results["consensus"] = moves[0] if len(set(moves)) == 1 else "Disagree"
 
     return results
 
@@ -178,8 +161,8 @@ async def kata_ws(websocket: WebSocket):
                 )
                 print(
                     f"[kata-ws] frame={frame_count} infer → "
-                    f"{last_result.get('consensus', '?')} "
-                    f"(dual={last_result.get('dual_stem', {}).get('confidence', 0):.2f})"
+                    f"{last_result.get('move', '?')} "
+                    f"(conf={last_result.get('confidence', 0):.2f})"
                 )
 
             # ── Broadcast (real or cached result) ────────────────────────────
