@@ -10,15 +10,22 @@
 #
 #   Fix 2 — Inference Throttling:
 #     Still accepts EVERY frame and maintains the sliding window.
-#     Only runs AI inference every 3rd frame (frame_count % 3 == 0).
+#     Only runs AI inference every 5th frame (frame_count % 5 == 0).
 #     For skipped frames, instantly broadcasts the cached last prediction.
-#     This caps the inference rate to ~10 fps while the UI stays at 30 fps.
+#     This caps the inference rate to ~6 fps while the UI stays at 30 fps,
+#     giving the CPU breathing room and reducing per-frame queuing delay.
+#
+#   Fix 3 — Model-Ready Gate:
+#     A module-level asyncio.Event (_model_ready) is set once load_kata_models()
+#     completes.  The WebSocket handler checks the gate and returns a "warming"
+#     status message while the model is still loading, preventing the silent
+#     conf=0.00 problem when a client connects before startup finishes.
 #
 # WebSocket protocol:
 #   Client → Server:  { "landmarks": [{x, y, z, visibility} × 33] }
-#   Server → Client:  { "status": "live"|"buffering", "frame_count": N,
-#                        "dual_stem": {...}, "single_v1": {...}, "consensus": "...",
-#                        "throttled": true|false }
+#   Server → Client:  { "status": "live"|"buffering"|"warming", "frame_count": N,
+#                        "move": "...", "confidence": 0.0–1.0,
+#                        "all_probs": [...], "throttled": true|false }
 
 import os
 import asyncio
@@ -33,7 +40,7 @@ router = APIRouter(prefix="/api/kata", tags=["kata"])
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 SEQ_LEN           = 30
-INFER_EVERY_N     = 3          # Run inference every N-th frame
+INFER_EVERY_N     = 5          # Run inference every N-th frame (raised from 3→5)
 CLASS_NAMES       = ["GedanBarai", "Gyakudzuki", "MaeGeri"]
 
 PRODUCTION_BEST = os.path.normpath(os.path.join(
@@ -51,10 +58,16 @@ LOWER_DIM = 48   # landmarks 23-32 (×4) + angles 0-7
 # ── Model cache (loaded once at startup) ──────────────────────────────────────
 _kata_models: dict = {}
 
+# ── Model-ready gate ──────────────────────────────────────────────────────────
+# Set by load_kata_models() when the Dual-Stem model is ready.
+# The WS handler awaits this before running inference.
+_model_ready: asyncio.Event = asyncio.Event()
+
 
 def load_kata_models():
     """Load the Dual-Stem Production_Best Keras model into the shared cache."""
     if "dual" in _kata_models:
+        _model_ready.set()
         return  # already loaded
 
     import tensorflow as tf
@@ -64,8 +77,10 @@ def load_kata_models():
         dummy_102 = np.zeros((1, SEQ_LEN, UPPER_DIM + LOWER_DIM), dtype=np.float32)
         _kata_models["dual"]([dummy_102[:, :, :UPPER_DIM], dummy_102[:, :, UPPER_DIM:]], training=False)
         print(f"[kata] ✅ Dual-Stem model loaded & warmed up")
+        _model_ready.set()   # signal that inference is now available
     except Exception as e:
         print(f"[kata] ⚠️  Model load error: {e}")
+        _model_ready.set()   # unblock WS even on error (it will return empty results)
 
 
 # ── Inference ─────────────────────────────────────────────────────────────────
@@ -108,6 +123,10 @@ async def kata_ws(websocket: WebSocket):
     """
     Real-time Kata WebSocket — optimized version.
 
+    - Fix 3: Waits for _model_ready gate before starting inference.
+             Sends "warming" pings while the model is still loading,
+             so the client can display a human-readable status instead
+             of silently returning conf=0.00.
     - Accepts one landmark frame per message.
     - Maintains a 30-frame sliding window (deque).
     - Fix 1: Uses direct tensor calling for inference (no model.predict overhead).
@@ -115,13 +134,29 @@ async def kata_ws(websocket: WebSocket):
              For skipped frames, immediately broadcasts the cached last result.
     """
     await websocket.accept()
+    print("[kata-ws] ✅ Client connected")
+
+    # ── Fix 3: Wait for the Dual-Stem model to finish loading ────────────────
+    if not _model_ready.is_set():
+        print("[kata-ws] ⏳ Model not ready — sending warming pings")
+        try:
+            while not _model_ready.is_set():
+                await websocket.send_json({"status": "warming", "detail": "AI model loading, please wait…"})
+                # Wait up to 1 s for the event, then ping again
+                try:
+                    await asyncio.wait_for(_model_ready.wait(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    pass
+        except WebSocketDisconnect:
+            print("[kata-ws] Client disconnected during warming")
+            return
+        print("[kata-ws] ✅ Model ready — starting inference")
 
     window: collections.deque = collections.deque(maxlen=SEQ_LEN)
     frame_count  = 0
     last_result: dict | None = None          # cached inference result
     loop = asyncio.get_event_loop()
 
-    print("[kata-ws] ✅ Client connected")
     try:
         while True:
             data = await websocket.receive_json()
@@ -159,11 +194,12 @@ async def kata_ws(websocket: WebSocket):
                 last_result = await loop.run_in_executor(
                     None, _run_inference, list(window)
                 )
-                print(
-                    f"[kata-ws] frame={frame_count} infer → "
-                    f"{last_result.get('move', '?')} "
-                    f"(conf={last_result.get('confidence', 0):.2f})"
-                )
+                if last_result:
+                    print(
+                        f"[kata-ws] frame={frame_count} infer → "
+                        f"{last_result.get('move', '?')} "
+                        f"(conf={last_result.get('confidence', 0):.2f})"
+                    )
 
             # ── Broadcast (real or cached result) ────────────────────────────
             if last_result:
@@ -184,3 +220,4 @@ async def kata_ws(websocket: WebSocket):
             await websocket.send_json({"status": "error", "detail": str(exc)})
         except Exception:
             pass
+

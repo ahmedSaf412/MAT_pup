@@ -39,38 +39,26 @@ async def startup_event():
 
 async def _preload_heavy_resources():
     """
-    Background pre-warm task.  Errors here are logged but never crash the server.
-    The classify endpoint's model is already loaded lazily by classify.py on first
-    request, but we trigger it early so the first real request feels instant.
+    Background pre-warm task.  All four heavy loads run CONCURRENTLY via
+    asyncio.gather so the slowest one (RAG HuggingFace download) does not
+    delay the Kata Dual-Stem model from becoming available.
     """
     loop = asyncio.get_event_loop()
-    try:
-        # Pre-load the Keras Bi-LSTM model (runs in thread pool to avoid blocking)
-        await loop.run_in_executor(None, _load_model_cache)
-        print("[startup] [OK] Bi-LSTM model pre-loaded")
-    except Exception as e:
-        print(f"[startup] [WARN] Model pre-load skipped: {e}")
 
-    try:
-        # Pre-warm MADS reference sequences + thresholds into memory
-        await loop.run_in_executor(None, _load_dtw_caches)
-        print("[startup] [OK] MADS P3 reference sequences loaded")
-    except Exception as e:
-        print(f"[startup] [WARN] DTW cache pre-load skipped: {e}")
+    async def _run(label: str, fn):
+        try:
+            await loop.run_in_executor(None, fn)
+            print(f"[startup] [OK] {label}")
+        except Exception as e:
+            print(f"[startup] [WARN] {label} skipped: {e}")
 
-    try:
-        # Pre-load RAG Hugging Face embedding model
-        await loop.run_in_executor(None, _load_rag_model)
-        print("[startup] [OK] RAG Model loaded into memory!")
-    except Exception as e:
-        print(f"[startup] [WARN] RAG Model pre-load skipped: {e}")
+    await asyncio.gather(
+        _run("Bi-LSTM model pre-loaded",              _load_model_cache),
+        _run("MADS P3 reference sequences loaded",    _load_dtw_caches),
+        _run("RAG Model loaded into memory!",         _load_rag_model),
+        _run("Kata model (Dual-Stem) loaded!",        _load_kata_models),
+    )
 
-    try:
-        # Pre-load Kata Mode model (Dual-Stem from Production_Best)
-        await loop.run_in_executor(None, _load_kata_models)
-        print("[startup] [OK] Kata model (Dual-Stem) loaded!")
-    except Exception as e:
-        print(f"[startup] [WARN] Kata model pre-load skipped: {e}")
 
 
 def _load_model_cache():

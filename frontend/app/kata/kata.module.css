@@ -56,9 +56,14 @@
   font-size: 0.8rem;
   font-weight: 600;
 }
-.statusBadge.connecting { background: rgba(255, 180, 0, 0.15); border: 1px solid rgba(255,180,0,0.3); color: #ffb400; }
-.statusBadge.live       { background: rgba(0, 220, 120, 0.15); border: 1px solid rgba(0,220,120,0.3); color: #00dc78; }
+.statusBadge.connecting  { background: rgba(255, 180, 0, 0.15); border: 1px solid rgba(255,180,0,0.3); color: #ffb400; }
+.statusBadge.live        { background: rgba(0, 220, 120, 0.15); border: 1px solid rgba(0,220,120,0.3); color: #00dc78; }
+.statusBadge.warming     { background: rgba(108, 99, 255, 0.15); border: 1px solid rgba(108,99,255,0.4); color: #a99dff; animation: warmingPulse 2s ease-in-out infinite; }
 .statusBadge.disconnected { background: rgba(255, 70, 70, 0.15); border: 1px solid rgba(255,70,70,0.3); color: #ff4646; }
+@keyframes warmingPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
 .statusDot {
   width: 8px; height: 8px;
   border-radius: 50%;
