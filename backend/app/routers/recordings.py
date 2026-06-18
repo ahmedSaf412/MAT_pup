@@ -106,6 +106,8 @@ def _process_video_background(recording_id: int, file_path: str, session_id: int
         # Load model once
         model = load_model("Bi-LSTM", "Angles14")
 
+        detected_moves = []
+
         # Slide a window of 30 frames (non-overlapping)
         step = WINDOW_SIZE
         for start in range(0, len(buffer) - WINDOW_SIZE + 1, step):
@@ -147,13 +149,27 @@ def _process_video_background(recording_id: int, file_path: str, session_id: int
                 frame_timestamp = ts_start,
                 input_mode     = "upload",
             )
+            if not is_ood and move_id != "unknown":
+                detected_moves.append(move_id)
 
         # Mark recording done and update duration
         rec = db.query(Recording).filter(Recording.id == recording_id).first()
         if rec:
             rec.status           = "done"
             rec.duration_seconds = int(frame_idx / fps) if fps else 0
-            db.commit()
+
+        # Aggregate unique consecutive moves to form Kata Name
+        sess = db.query(DBSession_).filter(DBSession_.id == session_id).first()
+        if sess and detected_moves:
+            consecutive_moves = []
+            for m in detected_moves:
+                if not consecutive_moves or consecutive_moves[-1] != m:
+                    consecutive_moves.append(m)
+            acronyms = {"mae_geri": "MG", "gyaku_zuki": "GDZ", "gedan_barai": "GB"}
+            kata_str = "-".join([acronyms.get(m, m.upper()) for m in consecutive_moves])
+            sess.kata_name = kata_str
+
+        db.commit()
 
     except Exception as e:
         print(f"[recordings] Processing error for recording {recording_id}: {e}")
@@ -197,6 +213,13 @@ async def upload_recording(
         db.add(sess)
         db.flush()
         session_id = sess.id
+    else:
+        # Check if the session exists and was incorrectly marked as 'live'
+        from app.models.session import Session as DBSession_
+        sess = db.query(DBSession_).filter(DBSession_.id == session_id).first()
+        if sess and sess.session_type == "live":
+            sess.session_type = "recorded"
+            db.commit()
     
     # Save file
     safe_name = f"rec_{session_id}_{int(time.time())}_{file.filename}"

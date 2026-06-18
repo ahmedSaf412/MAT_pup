@@ -63,6 +63,7 @@ export default function TraineeDetailPage() {
   const [recLoading, setRecLoading] = useState(false);
   const [activeVideo, setActiveVideo] = useState(null);   // currently playing rec
   const [loading,    setLoading]    = useState(true);
+  const [feedbackText, setFeedbackText] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated) { router.push('/login'); return; }
@@ -74,6 +75,22 @@ export default function TraineeDetailPage() {
         .catch(err => { console.error(err); setLoading(false); });
     }
   }, [isAuthenticated, isCoach, router, traineeId]);
+
+  const handleSubmitFeedback = async () => {
+    if (!activeVideo || !feedbackText.trim()) return;
+    try {
+      const formData = new FormData();
+      formData.append('message', feedbackText);
+      await api.post(`/api/recordings/${activeVideo.id}/feedback`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert('Feedback saved successfully! The trainee will be able to see it.');
+      setFeedbackText('');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save feedback');
+    }
+  };
 
   // Lazy-load recordings only when the tab is opened
   useEffect(() => {
@@ -264,6 +281,34 @@ export default function TraineeDetailPage() {
                         Session #{activeVideo.session_id} · {formatDate(activeVideo.created_at)} ·{' '}
                         {formatDuration(activeVideo.duration_seconds)}
                       </span>
+                    </div>
+                    {/* Coach Feedback Section */}
+                    <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <h3 style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#00d4ff' }}>Leave Feedback</h3>
+                      <textarea
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        placeholder="Type your feedback, corrections, or advice for this recording..."
+                        style={{
+                          width: '100%', minHeight: '80px', padding: '0.75rem',
+                          background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)',
+                          borderRadius: '8px', color: '#fff', fontSize: '0.85rem', resize: 'vertical'
+                        }}
+                      />
+                      <button
+                        onClick={handleSubmitFeedback}
+                        disabled={!feedbackText.trim()}
+                        style={{
+                          marginTop: '0.5rem', padding: '0.5rem 1rem',
+                          background: feedbackText.trim() ? '#00d4ff' : 'rgba(255,255,255,0.1)',
+                          color: feedbackText.trim() ? '#000' : '#888',
+                          border: 'none', borderRadius: '6px', fontWeight: 600,
+                          cursor: feedbackText.trim() ? 'pointer' : 'not-allowed',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        Submit Feedback
+                      </button>
                     </div>
                   </div>
                 )}
