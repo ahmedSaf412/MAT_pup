@@ -204,24 +204,13 @@ async def classify_movement(
                 is_unknown       = True
                 rejection_reason = f"Ambiguous: margin {margin:.3f} < {MARGIN_THRESHOLD}"
 
-        # ── OOD Layer 3: DTW (Bi-LSTM models only) ────────────────────────────
+        # ── OOD Layer 3: DTW ─────────────────────────────────────────────────
+        # NOTE: score_all_classes() expects angle-array input (N, K_angles),
+        # not the 102-d landmark feature vectors we have here. Re-wiring is a
+        # separate task. For now, DTW OOD is handled downstream by the RAG
+        # pipeline (process_form_feedback) which calls compare_with_dtw()
+        # with the raw landmark frames — that path is unchanged.
         corrections = None
-        if not is_unknown and model_key != "xgb":
-            try:
-                from app.rag.dtw_comparator import score_all_classes
-                from app.rag.ood_config import DTW_OVERRIDE_RATIO, DTW_UNKNOWN_THRESHOLD
-                dtw_scores = score_all_classes(predicted_db, frame_features)
-                if dtw_scores:
-                    best_class, best_score = min(dtw_scores.items(), key=lambda kv: kv[1])
-                    if best_score > DTW_UNKNOWN_THRESHOLD:
-                        is_unknown = True
-                        rejection_reason = f"DTW distance too high: {best_score:.2f}"
-                    corrections = [
-                        {"joint": k, "dtw_distance": round(v, 3)}
-                        for k, v in dtw_scores.items()
-                    ]
-            except Exception:
-                pass   # DTW is optional — don't crash if references missing
 
         # ── Persist to DB ─────────────────────────────────────────────────────
         move_id_for_db  = "unknown" if is_unknown else predicted_db
