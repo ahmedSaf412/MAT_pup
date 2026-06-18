@@ -62,12 +62,14 @@ async def _preload_heavy_resources():
 
 
 def _load_model_cache():
-    """Trigger the classify router's lazy model load."""
-    try:
-        from app.routers.classify import load_model
-        load_model()
-    except Exception:
-        pass   # model will still load on first request
+    """Pre-warm all three classifiers at startup so switching is instant."""
+    from app.routers.classify import load_model
+    for key in ("xgb", "single_bilstm", "dual_stem"):
+        try:
+            load_model(key)
+        except Exception as e:
+            print(f"[startup] [WARN] Could not preload model '{key}': {e}")
+
 
 
 def _load_dtw_caches():

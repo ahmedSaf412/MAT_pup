@@ -113,6 +113,7 @@ export default function TrainPage() {
   const [selectedMove,   setSelectedMove]   = useState('free');
   const [timer,          setTimer]          = useState(0);
   const [score,          setScore]          = useState(0);
+  const [selectedModel,  setSelectedModel]  = useState('XGBoost');  // 'XGBoost' | 'Single-BiLSTM' | 'Dual-Stem'
 
   // ── Pose & feedback state
   const [landmarks,         setLandmarks]         = useState(null);
@@ -135,6 +136,7 @@ export default function TrainPage() {
   const repCountRef         = useRef(0);
   const isMediaPlayingRef   = useRef(false);
   const selectedMoveRef     = useRef('free');
+  const selectedModelRef    = useRef('XGBoost');  // keep in sync with selectedModel state
 
   // ── MediaRecorder — webcam recording for coach review ──────────────────
   const mediaRecorderRef    = useRef(null);
@@ -151,7 +153,8 @@ export default function TrainPage() {
   // Sync state → refs
   useEffect(() => { isArmedRef.current    = isArmed; },       [isArmed]);
   useEffect(() => { repCountRef.current   = repCount; },      [repCount]);
-  useEffect(() => { selectedMoveRef.current = selectedMove; },[selectedMove]);
+  useEffect(() => { selectedMoveRef.current  = selectedMove;  }, [selectedMove]);
+  useEffect(() => { selectedModelRef.current = selectedModel; }, [selectedModel]);
 
   // ── Create Training Session on Mount ──────────────────────────────────────
   useEffect(() => {
@@ -459,15 +462,15 @@ export default function TrainPage() {
       const response = await api.post('/api/classify', {
         frames: payloadFrames,
         feature_set: 'landmarks',
-        model: 'XGBoost',
+        model: selectedModelRef.current,
         session_id: activeSessionIdRef.current,
         input_mode: 'camera',
         frame_timestamp: Date.now() / 1000
       });
 
-      const { move, confidence, inference_time_ms, all_probabilities, move_id, detection_id } = response.data;
+      const { move, confidence, inference_time_ms, all_probabilities, move_id, detection_id, model_used } = response.data;
 
-      setLastResult({ move, confidence, allProbs: all_probabilities, inferenceMs: inference_time_ms });
+      setLastResult({ move, confidence, allProbs: all_probabilities, inferenceMs: inference_time_ms, modelUsed: model_used || selectedModelRef.current });
 
       // Evaluate on INTENDED move if user selected one, not the classifier guess
       const finalMoveId = intendedMove !== 'free' ? intendedMove : move_id;
@@ -482,6 +485,7 @@ export default function TrainPage() {
         confidence,
         corrections: [
           { joint: 'result', message: `✅ ${move} detected`,                          severity: confidence > 0.85 ? 'info' : 'warning' },
+          { joint: 'model',  message: `🤖 ${model_used || selectedModelRef.current}`, severity: 'info' },
           { joint: 'conf',   message: `Confidence: ${(confidence * 100).toFixed(1)}%`, severity: 'info' },
           { joint: 'speed',  message: `Inference: ${inference_time_ms.toFixed(1)} ms`, severity: 'info' },
         ],
@@ -489,8 +493,9 @@ export default function TrainPage() {
 
       setScore(s => s + Math.round(confidence * 100));
       setDetectionHistory(prev =>
-        [{ move, confidence, timestamp: new Date().toLocaleTimeString() }, ...prev].slice(0, 10)
+        [{ move, confidence, model: model_used || selectedModelRef.current, timestamp: new Date().toLocaleTimeString() }, ...prev].slice(0, 10)
       );
+
 
       // ── Non-blocking DTW RAG coaching feedback ──────────────────────────
       if (finalMoveId !== 'free' && landmarkFrames?.length >= 5) {
@@ -708,6 +713,45 @@ export default function TrainPage() {
               </select>
             </div>
 
+            {/* ── Model Selector ── */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              flexWrap: 'wrap', marginTop: '0.5rem',
+            }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>🤖 Model:</span>
+              {[
+                { id: 'XGBoost',      label: 'XGBoost',       emoji: '🌲', badge: 'Fast' },
+                { id: 'Single-BiLSTM', label: 'Single Bi-LSTM', emoji: '🧠', badge: 'V1'   },
+                { id: 'Dual-Stem',   label: 'Dual-Stem',      emoji: '⚡', badge: 'Best'  },
+              ].map(({ id, label, emoji, badge }) => (
+                <button
+                  key={id}
+                  onClick={() => setSelectedModel(id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '5px',
+                    padding: '5px 12px', borderRadius: '20px', fontSize: '0.75rem',
+                    fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    border: selectedModel === id
+                      ? '1.5px solid var(--accent-blue)'
+                      : '1.5px solid rgba(255,255,255,0.12)',
+                    background: selectedModel === id
+                      ? 'rgba(0,212,255,0.15)'
+                      : 'rgba(255,255,255,0.04)',
+                    color: selectedModel === id ? 'var(--accent-blue)' : 'var(--text-muted)',
+                    boxShadow: selectedModel === id ? '0 0 8px rgba(0,212,255,0.3)' : 'none',
+                  }}
+                >
+                  <span>{emoji}</span>
+                  <span>{label}</span>
+                  <span style={{
+                    fontSize: '0.6rem', padding: '1px 5px', borderRadius: '6px',
+                    background: selectedModel === id ? 'var(--accent-blue)' : 'rgba(255,255,255,0.1)',
+                    color: selectedModel === id ? '#000' : 'inherit',
+                  }}>{badge}</span>
+                </button>
+              ))}
+            </div>
+
             <div className={styles.controlButtons}>
               {!cameraActive && !isVideoUploaded ? (
                 <>
@@ -849,6 +893,12 @@ export default function TrainPage() {
                 {detectionHistory.map((det, idx) => (
                   <div key={idx} className={styles.historyItem}>
                     <span className={styles.historyMove}>{det.move}</span>
+                    {det.model && (
+                      <span style={{
+                        fontSize: '0.65rem', padding: '1px 6px', borderRadius: '8px',
+                        background: 'rgba(0,212,255,0.12)', color: '#00d4ff', whiteSpace: 'nowrap',
+                      }}>{det.model}</span>
+                    )}
                     <span className={styles.historyConfidence}>{(det.confidence * 100).toFixed(1)}%</span>
                     <span className={styles.historyTime}>{det.timestamp}</span>
                   </div>
@@ -856,6 +906,7 @@ export default function TrainPage() {
               </div>
             </div>
           )}
+
 
           {/* Pre-session hint */}
           {!isTraining && !lastResult && (
