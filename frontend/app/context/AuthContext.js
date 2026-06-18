@@ -46,7 +46,9 @@ export function AuthProvider({ children }) {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.detail || 'Login failed'
+        error: error.friendlyMessage
+          || error.response?.data?.detail
+          || 'Login failed — check the backend is running.',
       };
     }
   }, []);

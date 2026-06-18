@@ -7,14 +7,27 @@ from datetime import datetime
 
 
 # ── Session ───────────────────────────────────────────────────────────────────
-class SessionCreate(BaseModel):
+class SessionBase(BaseModel):
+    trainee_id: int
+    coach_id: Optional[int] = None
     session_type: str = "solo"   # 'live' | 'recorded' | 'solo'
+    kata_name: Optional[str] = None
+    status: str = "active"
+
+class SessionCreate(BaseModel):
+    coach_id:     Optional[int] = None
+    session_type: Optional[str] = None
+    kata_name:    Optional[str] = None
+    status:       str = "active"
+
+    model_config = {"from_attributes": True}
 
 class SessionOut(BaseModel):
     id:           int
     trainee_id:   int
     coach_id:     Optional[int] = None
     session_type: Optional[str] = None
+    kata_name:    Optional[str] = None
     status:       str
     started_at:   Optional[datetime] = None
     ended_at:     Optional[datetime] = None

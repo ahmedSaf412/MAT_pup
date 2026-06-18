@@ -17,6 +17,7 @@ class Session(Base):
     trainee_id   = Column(Integer, ForeignKey("trainee.id", ondelete="CASCADE"))
     coach_id     = Column(Integer, ForeignKey("coach.id",   ondelete="SET NULL"), nullable=True)
     session_type = Column(String(20), nullable=True)   # 'live' | 'recorded' | 'solo'
+    kata_name    = Column(String(100), nullable=True)  # Auto-generated sequence of moves or assigned name
     status       = Column(String(20), default="active") # 'active' | 'ended'
     started_at   = Column(DateTime, server_default=func.now())
     ended_at     = Column(DateTime, nullable=True)

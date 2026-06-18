@@ -39,38 +39,26 @@ async def startup_event():
 
 async def _preload_heavy_resources():
     """
-    Background pre-warm task — XGBoost edition (feat-xgb-classifier).
-    pickle.load() is fast (~50 ms), so both models load in under 200 ms total.
-    Errors here are logged but never crash the server.
+    Background pre-warm task.  All four heavy loads run CONCURRENTLY via
+    asyncio.gather so the slowest one (RAG HuggingFace download) does not
+    delay the Kata Dual-Stem model from becoming available.
     """
     loop = asyncio.get_event_loop()
-    try:
-        # Pre-load the XGBoost classifier used by POST /api/classify
-        await loop.run_in_executor(None, _load_model_cache)
-        print("[startup] [OK] XGBoost classifier pre-loaded")
-    except Exception as e:
-        print(f"[startup] [WARN] Classifier pre-load skipped: {e}")
 
-    try:
-        # Pre-warm MADS reference sequences + thresholds into memory
-        await loop.run_in_executor(None, _load_dtw_caches)
-        print("[startup] [OK] MADS P3 reference sequences loaded")
-    except Exception as e:
-        print(f"[startup] [WARN] DTW cache pre-load skipped: {e}")
+    async def _run(label: str, fn):
+        try:
+            await loop.run_in_executor(None, fn)
+            print(f"[startup] [OK] {label}")
+        except Exception as e:
+            print(f"[startup] [WARN] {label} skipped: {e}")
 
-    try:
-        # Pre-load RAG Hugging Face embedding model
-        await loop.run_in_executor(None, _load_rag_model)
-        print("[startup] [OK] RAG Model loaded into memory!")
-    except Exception as e:
-        print(f"[startup] [WARN] RAG Model pre-load skipped: {e}")
+    await asyncio.gather(
+        _run("Bi-LSTM model pre-loaded",              _load_model_cache),
+        _run("MADS P3 reference sequences loaded",    _load_dtw_caches),
+        _run("RAG Model loaded into memory!",         _load_rag_model),
+        _run("Kata model (Dual-Stem) loaded!",        _load_kata_models),
+    )
 
-    try:
-        # Pre-load the XGBoost model used by the Kata WebSocket
-        await loop.run_in_executor(None, _load_kata_models)
-        print("[startup] [OK] Kata XGBoost model loaded!")
-    except Exception as e:
-        print(f"[startup] [WARN] Kata model pre-load skipped: {e}")
 
 
 def _load_model_cache():
