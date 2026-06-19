@@ -176,8 +176,15 @@ async def classify_movement(
             # XGBoost: flat (1, 3060)
             X = frame_features.ravel()[np.newaxis, :]   # (1, 3060)
             probs = model.predict_proba(X)[0]           # (3,)
+        elif model_key == "dual_stem":
+            # Dual-Stem Fusion BiLSTM: takes [upper_features, lower_features]
+            X = frame_features[np.newaxis, ...]         # (1, 30, 102)
+            upper = X[:, :, :54]                        # first 54 features
+            lower = X[:, :, 54:]                        # remaining 48 features
+            raw = model.predict([upper, lower], verbose=0)[0] # (3,)
+            probs = raw.astype(float)
         else:
-            # Keras BiLSTM variants: (1, 30, 102)
+            # Single-BiLSTM: (1, 30, 102)
             X = frame_features[np.newaxis, ...]         # (1, 30, 102)
             raw = model.predict(X, verbose=0)[0]        # (3,)
             probs = raw.astype(float)
@@ -187,6 +194,7 @@ async def classify_movement(
         predicted_display = CLASS_NAMES_DISPLAY[idx]
         predicted_db      = CLASS_NAMES_DB[idx]
         inference_time    = (time.time() - start_time) * 1000
+        print(f"[Metrics] {model_key} Inference took {inference_time:.2f} ms")
 
         # ── OOD Layer 1: Confidence ───────────────────────────────────────────
         is_unknown       = False
@@ -204,13 +212,29 @@ async def classify_movement(
                 is_unknown       = True
                 rejection_reason = f"Ambiguous: margin {margin:.3f} < {MARGIN_THRESHOLD}"
 
-        # ── OOD Layer 3: DTW ─────────────────────────────────────────────────
-        # NOTE: score_all_classes() expects angle-array input (N, K_angles),
-        # not the 102-d landmark feature vectors we have here. Re-wiring is a
-        # separate task. For now, DTW OOD is handled downstream by the RAG
-        # pipeline (process_form_feedback) which calls compare_with_dtw()
-        # with the raw landmark frames — that path is unchanged.
+        # ── OOD Layer 3: DTW (Bi-LSTM models only) ────────────────────────────
         corrections = None
+        if not is_unknown and model_key != "xgb":
+            try:
+                from app.rag.dtw_comparator import score_all_classes
+                from app.rag.ood_config import DTW_OVERRIDE_RATIO, DTW_UNKNOWN_THRESHOLD
+                
+                t_dtw_start = time.time()
+                dtw_scores = score_all_classes(predicted_db, frame_features)
+                dtw_time_ms = (time.time() - t_dtw_start) * 1000
+                print(f"[Metrics] DTW comparison took {dtw_time_ms:.2f} ms")
+                
+                if dtw_scores:
+                    best_class, best_score = min(dtw_scores.items(), key=lambda kv: kv[1])
+                    if best_score > DTW_UNKNOWN_THRESHOLD:
+                        is_unknown = True
+                        rejection_reason = f"DTW distance too high: {best_score:.2f}"
+                    corrections = [
+                        {"joint": k, "dtw_distance": round(v, 3)}
+                        for k, v in dtw_scores.items()
+                    ]
+            except Exception:
+                pass   # DTW is optional — don't crash if references missing
 
         # ── Persist to DB ─────────────────────────────────────────────────────
         move_id_for_db  = "unknown" if is_unknown else predicted_db
