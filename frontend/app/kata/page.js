@@ -40,6 +40,7 @@ export default function KataPage() {
   const [frameCount,    setFrameCount]    = useState(0);
   const [bufferFill,    setBufferFill]    = useState(0);
   const [liveResult,    setLiveResult]    = useState(null);
+  const [xgbResult,     setXgbResult]     = useState(null);
 
   // ── Video analysis state
   const [analyzeProgress, setAnalyzeProgress] = useState(0);   // 0-100 during analysis pass
@@ -120,6 +121,13 @@ export default function KataPage() {
             confidence: msg.confidence ?? 0,
             all_probs:  msg.all_probs  ?? [],
           });
+          if (msg.xgb_move) {
+            setXgbResult({
+              move:       msg.xgb_move,
+              confidence: msg.xgb_confidence ?? 0,
+              all_probs:  msg.xgb_probs  ?? [],
+            });
+          }
         } else if (msg.status === 'buffering') {
           setWsStatus('live');   // connected & running, just buffering
         }
@@ -221,7 +229,10 @@ export default function KataPage() {
         const msg = JSON.parse(ev.data);
         if (msg.status === 'warming') { setWsStatus('warming'); return; }
         if (msg.status === 'live' && msg.move) {
-          const result = { move: msg.move, confidence: msg.confidence ?? 0, all_probs: msg.all_probs ?? [] };
+          const result = { 
+            move: msg.move, confidence: msg.confidence ?? 0, all_probs: msg.all_probs ?? [],
+            xgb: msg.xgb_move ? { move: msg.xgb_move, confidence: msg.xgb_confidence ?? 0, all_probs: msg.xgb_probs ?? [] } : null
+          };
           if (pendingResults.length > 0) {
             pendingResults.shift()(result);
           } else {
@@ -318,7 +329,10 @@ export default function KataPage() {
       const stored = frameStore.get(currentFrame);
       if (stored) {
         if (stored.landmarks) drawSkeletonOnCanvas(stored.landmarks);
-        if (stored.result)    setLiveResult(stored.result);
+        if (stored.result) {
+          setLiveResult(stored.result);
+          if (stored.result.xgb) setXgbResult(stored.result.xgb);
+        }
       }
       setFrameCount(currentFrame);
       setBufferFill(30);  // window always "full" in replay
@@ -626,6 +640,45 @@ export default function KataPage() {
                       const bar = confClass(p);
                       return (
                         <div key={name} className={styles.probRow}>
+                          <span className={styles.probLabel}>{name}</span>
+                          <div className={styles.probTrack}>
+                            <div
+                              className={`${styles.probBar} ${styles[bar]}`}
+                              style={{ width: `${(p * 100).toFixed(1)}%` }}
+                            />
+                          </div>
+                          <span className={styles.probPct}>{(p * 100).toFixed(0)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* XGBoost result card */}
+              <div className={`${styles.modelCard} ${xgbResult ? styles.active : ''}`}>
+                <div className={styles.modelHeader}>
+                  <span className={styles.modelName}>🌲 XGBoost AI</span>
+                  {xgbResult && (
+                    <span className={`${styles.modelConf} ${styles[confClass(xgbResult.confidence)]}`}>
+                      {(xgbResult.confidence * 100).toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+                <div className={`${styles.moveName} ${!xgbResult ? styles.buffering : ''}`}>
+                  {wsStatus === 'warming'
+                    ? '⏳ Loading AI…'
+                    : xgbResult
+                      ? (MOVE_DISPLAY[xgbResult.move] ?? xgbResult.move)
+                      : mode === 'analyzing' ? '— Analyzing… —' : '— Buffering —'}
+                </div>
+                {xgbResult?.all_probs?.length > 0 && (
+                  <div className={styles.probBars}>
+                    {MOVE_NAMES.map((name, i) => {
+                      const p   = xgbResult.all_probs[i] ?? 0;
+                      const bar = confClass(p);
+                      return (
+                        <div key={`xgb-${name}`} className={styles.probRow}>
                           <span className={styles.probLabel}>{name}</span>
                           <div className={styles.probTrack}>
                             <div

@@ -49,7 +49,7 @@ PRODUCTION_BEST = os.path.normpath(os.path.join(
 ))
 
 DUAL_MODEL_PATH  = os.path.join(PRODUCTION_BEST, "best_dual_stem_fusion.keras")
-SINV1_MODEL_PATH = os.path.join(PRODUCTION_BEST, "best_single_bilstmV1.keras")
+XGB_MODEL_PATH   = os.path.join(PRODUCTION_BEST, "model_xgboost.pkl")
 
 # Feature split (matches feature_extractor.py structure)
 UPPER_DIM = 54   # landmarks 11-22 (×4) + angles 8-13
@@ -65,18 +65,26 @@ _model_ready: asyncio.Event = asyncio.Event()
 
 
 def load_kata_models():
-    """Load the Dual-Stem Production_Best Keras model into the shared cache."""
-    if "dual" in _kata_models:
+    """Load the Dual-Stem Production_Best Keras model and XGBoost into the shared cache."""
+    if "dual" in _kata_models and "xgb" in _kata_models:
         _model_ready.set()
         return  # already loaded
 
     import tensorflow as tf
+    import pickle
     try:
-        _kata_models["dual"]  = tf.keras.models.load_model(DUAL_MODEL_PATH)
-        # Warm-up: run a dummy inference to JIT-compile the TF graph
-        dummy_102 = np.zeros((1, SEQ_LEN, UPPER_DIM + LOWER_DIM), dtype=np.float32)
-        _kata_models["dual"]([dummy_102[:, :, :UPPER_DIM], dummy_102[:, :, UPPER_DIM:]], training=False)
-        print(f"[kata] ✅ Dual-Stem model loaded & warmed up")
+        if "dual" not in _kata_models:
+            _kata_models["dual"]  = tf.keras.models.load_model(DUAL_MODEL_PATH)
+            # Warm-up: run a dummy inference to JIT-compile the TF graph
+            dummy_102 = np.zeros((1, SEQ_LEN, UPPER_DIM + LOWER_DIM), dtype=np.float32)
+            _kata_models["dual"]([dummy_102[:, :, :UPPER_DIM], dummy_102[:, :, UPPER_DIM:]], training=False)
+            print(f"[kata] ✅ Dual-Stem model loaded & warmed up")
+            
+        if "xgb" not in _kata_models:
+            with open(XGB_MODEL_PATH, "rb") as f:
+                _kata_models["xgb"] = pickle.load(f)
+            print(f"[kata] ✅ XGBoost model loaded")
+            
         _model_ready.set()   # signal that inference is now available
     except Exception as e:
         print(f"[kata] ⚠️  Model load error: {e}")
@@ -108,11 +116,17 @@ def _run_inference(window_list: list) -> dict:
     if "dual" in _kata_models:
         p_dual = _kata_models["dual"]([upper, lower], training=False).numpy()[0]
         idx    = int(np.argmax(p_dual))
-        results = {
-            "move":       CLASS_NAMES[idx],
-            "confidence": float(round(float(np.max(p_dual)), 4)),
-            "all_probs":  [round(float(v), 4) for v in p_dual],
-        }
+        results["move"]       = CLASS_NAMES[idx]
+        results["confidence"] = float(round(float(np.max(p_dual)), 4))
+        results["all_probs"]  = [round(float(v), 4) for v in p_dual]
+        
+    if "xgb" in _kata_models:
+        X_flat = seq.ravel()[np.newaxis, :]  # (1, 3060)
+        p_xgb = _kata_models["xgb"].predict_proba(X_flat)[0]
+        idx_xgb = int(np.argmax(p_xgb))
+        results["xgb_move"]       = CLASS_NAMES[idx_xgb]
+        results["xgb_confidence"] = float(round(float(np.max(p_xgb)), 4))
+        results["xgb_probs"]      = [round(float(v), 4) for v in p_xgb]
 
     return results
 
