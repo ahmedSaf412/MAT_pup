@@ -1,4 +1,0 @@
-Technique,Support,Baseline_F1,DualStem_F1,Delta_Improvement,Precision,Recall
-GedanBarai,21.0,97.56,97.56,0.0,100.0,95.24
-Gyakudzuki,26.0,96.3,98.04,1.74,100.0,96.15
-MaeGeri,18.0,91.43,94.74,3.31,90.0,100.0
