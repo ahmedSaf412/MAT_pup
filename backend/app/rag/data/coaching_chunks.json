@@ -1,0 +1,219 @@
+[
+  {
+    "move": "gyaku_zuki",
+    "joint": "elbow",
+    "error_type": "none",
+    "topic": "Correct Elbow Position",
+    "text": "When executing the Reverse Lunge Punch, it's essential to maintain a correct elbow position. Keep your left elbow close to your body, with your forearm parallel to the ground. Your right elbow should be at a 90-degree angle, with your fist chambered and ready to strike. This positioning will help you generate power and speed in your punch."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "elbow",
+    "error_type": "too bent",
+    "topic": "Fixing Overly Bent Elbow",
+    "text": "If you find that your right elbow is too bent, it may cause your punch to lose power and speed. To fix this, focus on keeping your elbow at a 90-degree angle. Practice punching with a straighter arm, while still maintaining a relaxed and chambered fist. This will help you develop a more efficient and effective punching technique."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "knee",
+    "error_type": "none",
+    "topic": "Correct Knee Alignment",
+    "text": "In the Reverse Lunge Punch, your left knee should be bent at a 90-degree angle, with your weight evenly distributed between both legs. Your right knee should be slightly bent, with your foot facing forward. This alignment will help you maintain balance and generate power in your punch."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "knee",
+    "error_type": "too low",
+    "topic": "Fixing Dropped Knee",
+    "text": "If you find that your left knee is too low, it may cause you to lose balance and stability. To fix this, focus on keeping your knee at a 90-degree angle, with your weight evenly distributed between both legs. Practice lunging with a more upright posture, while still maintaining a deep and powerful stance."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "hip",
+    "error_type": "none",
+    "topic": "Correct Hip Rotation",
+    "text": "When executing the Reverse Lunge Punch, it's essential to rotate your hips in a way that generates power and speed in your punch. Keep your hips facing forward, with your left hip rotating slightly to generate torque. This rotation will help you develop a more effective and efficient punching technique."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "hip",
+    "error_type": "incorrect rotation",
+    "topic": "Fixing Incorrect Hip Rotation",
+    "text": "If you find that your hips are not rotating correctly, it may cause your punch to lose power and speed. To fix this, focus on rotating your left hip slightly, while keeping your right hip stable and facing forward. Practice punching with a more rotational movement, while still maintaining a balanced and upright posture."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "shoulder",
+    "error_type": "none",
+    "topic": "Correct Guard Position",
+    "text": "When executing the Reverse Lunge Punch, it's essential to maintain a correct guard position. Keep your left shoulder relaxed and down, with your right shoulder slightly raised and forward. This positioning will help you protect your face and head, while also generating power and speed in your punch."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "shoulder",
+    "error_type": "too high",
+    "topic": "Fixing Raised Shoulder",
+    "text": "If you find that your left shoulder is too high, it may cause you to lose balance and stability. To fix this, focus on keeping your shoulder relaxed and down, with your right shoulder slightly raised and forward. Practice punching with a more relaxed and lowered shoulder, while still maintaining a balanced and upright posture."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "stance",
+    "error_type": "none",
+    "topic": "Correct Stance and Balance",
+    "text": "In the Reverse Lunge Punch, it's essential to maintain a correct stance and balance. Keep your feet shoulder-width apart, with your left foot facing forward and your right foot at a 45-degree angle. Your weight should be evenly distributed between both legs, with your knees slightly bent and your back straight. This stance will help you generate power and speed in your punch, while also maintaining balance and stability."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "stance",
+    "error_type": "too wide",
+    "topic": "Fixing Wide Stance",
+    "text": "If you find that your stance is too wide, it may cause you to lose balance and stability. To fix this, focus on keeping your feet shoulder-width apart, with your weight evenly distributed between both legs. Practice lunging with a more narrow and balanced stance, while still maintaining a deep and powerful position."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "elbow",
+    "error_type": "none",
+    "topic": "Correct Elbow Position",
+    "text": "When executing the front kick, it's essential to maintain proper elbow position. Keep your left elbow relaxed and slightly bent, with your fist clenched and guarding your face. Your right elbow, on the other hand, should be kept close to your body, with your fist also clenched and ready to rotate into the kick. Avoid over-bending or locking your elbows, as this can disrupt your balance and generate less power in your kick."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "elbow",
+    "error_type": "too bent",
+    "topic": "Fixing Over-Bent Elbow",
+    "text": "If you find yourself over-bending your elbows during the front kick, focus on relaxing your arms and keeping them slightly bent. Imagine a straight line from your shoulder to your fist, with a slight softness in the elbow. This will help you maintain balance and generate more power in your kick. Practice the kick in front of a mirror to monitor your elbow position and make adjustments as needed."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "knee",
+    "error_type": "none",
+    "topic": "Correct Knee Position",
+    "text": "The knee of your kicking leg should be kept straight, with your foot flexed and ready to strike. Avoid locking your knee, as this can cause injury and reduce the effectiveness of your kick. Your supporting leg should have a slightly bent knee, with your weight evenly distributed between both legs. This will help you maintain balance and generate power in your kick."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "knee",
+    "error_type": "too bent",
+    "topic": "Fixing Bent Kicking Knee",
+    "text": "If you find yourself bending your kicking knee during the front kick, focus on keeping it straight and your foot flexed. Imagine a straight line from your hip to your toes, with your knee locked in place. Practice the kick in slow motion to develop muscle memory and improve your technique. Remember to keep your supporting leg slightly bent to maintain balance and generate power."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "hip",
+    "error_type": "none",
+    "topic": "Correct Hip Rotation",
+    "text": "Proper hip rotation is crucial for generating power in the front kick. As you lift your kicking leg, rotate your hips forward and upward, keeping your core muscles engaged. This will help you generate torque and increase the effectiveness of your kick. Avoid rotating your hips too much, as this can cause you to lose balance and generate less power."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "hip",
+    "error_type": "incorrect rotation",
+    "topic": "Fixing Incorrect Hip Rotation",
+    "text": "If you find yourself rotating your hips incorrectly during the front kick, focus on keeping your core muscles engaged and your hips rotating forward and upward. Practice the kick in front of a mirror to monitor your hip rotation and make adjustments as needed. Remember to keep your weight evenly distributed between both legs and your supporting leg slightly bent to maintain balance."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "hip",
+    "error_type": "too low",
+    "topic": "Fixing Low Hip Position",
+    "text": "If you find yourself dropping your hips too low during the front kick, focus on keeping your core muscles engaged and your hips lifted. Imagine a straight line from your head to your heels, with your hips in a neutral position. Practice the kick in slow motion to develop muscle memory and improve your technique. Remember to keep your weight evenly distributed between both legs and your supporting leg slightly bent to maintain balance."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "shoulder",
+    "error_type": "none",
+    "topic": "Correct Shoulder Alignment",
+    "text": "When executing the front kick, it's essential to maintain proper shoulder alignment. Keep your shoulders relaxed and down, with your guard up and your fists clenched. Avoid tensing your shoulders or leaning forward, as this can disrupt your balance and generate less power in your kick."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "shoulder",
+    "error_type": "too high",
+    "topic": "Fixing Raised Shoulders",
+    "text": "If you find yourself raising your shoulders during the front kick, focus on relaxing them and keeping them down. Imagine a straight line from your ears to your shoulders, with your shoulders relaxed and down. Practice the kick in front of a mirror to monitor your shoulder position and make adjustments as needed. Remember to keep your guard up and your fists clenched to maintain proper form."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "stance",
+    "error_type": "none",
+    "topic": "Correct Stance Position",
+    "text": "The front kick begins with a solid stance. Stand with your feet shoulder-width apart, with your weight evenly distributed between both legs. Keep your knees slightly bent and your back straight, with your core muscles engaged. This will help you maintain balance and generate power in your kick."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "stance",
+    "error_type": "too wide",
+    "topic": "Fixing Wide Stance",
+    "text": "If you find yourself standing with a too-wide stance during the front kick, focus on bringing your feet closer together. Imagine a line from your heel to your toe, with your feet shoulder-width apart. Practice the kick in slow motion to develop muscle memory and improve your technique. Remember to keep your weight evenly distributed between both legs and your knees slightly bent to maintain balance."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "elbow",
+    "error_type": "none",
+    "topic": "Correct Elbow Position",
+    "text": "When performing the downward block, it's essential to keep your elbows slightly bent and relaxed. Imagine a small curve in your arms, with your forearms almost parallel to the ground. This allows you to maintain balance and generate power from your core. Keep your left elbow (for a right-handed practitioner) close to your body, with your forearm crossing your stomach, while your right elbow is extended downward, with your forearm crossing your left thigh."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "elbow",
+    "error_type": "too bent",
+    "topic": "Fixing Overly Bent Elbows",
+    "text": "If you find your elbows are too bent, it can cause your block to be ineffective and put unnecessary strain on your shoulders. To fix this, focus on keeping your arms relaxed and slightly curved. Practice the block in front of a mirror, paying attention to the angle of your elbows. As you block, imagine you're using your entire arm, from shoulder to wrist, to generate power and protection."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "knee",
+    "error_type": "none",
+    "topic": "Proper Knee Alignment",
+    "text": "During the downward block, your knees should be slightly bent, with your weight evenly distributed between both legs. For a right-handed practitioner, your left knee should be forward, with your left foot facing slightly outward, while your right knee is back, with your right foot at a 90-degree angle to your left foot. This stance provides stability and allows you to generate power from your legs."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "knee",
+    "error_type": "too straight",
+    "topic": "Fixing Locked Knees",
+    "text": "If you find your knees are too straight, it can cause you to lose balance and generate inadequate power. To fix this, focus on keeping your knees slightly bent, with your weight sinking into your legs. Practice the block in a slow, controlled manner, paying attention to the sensation in your knees and legs. As you block, imagine you're using your legs to drive the motion, keeping your knees soft and flexible."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "hip",
+    "error_type": "none",
+    "topic": "Correct Hip Rotation",
+    "text": "As you perform the downward block, your hips should rotate slightly, generating power and torque from your core. For a right-handed practitioner, your left hip should rotate forward, while your right hip rotates backward, creating a smooth, rotational motion. This hip rotation helps to generate power and speed in your block."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "hip",
+    "error_type": "incorrect rotation",
+    "topic": "Fixing Inadequate Hip Rotation",
+    "text": "If you find your hips are not rotating correctly, it can cause your block to be slow and ineffective. To fix this, focus on generating power from your core, using your hips to drive the motion. Practice the block in front of a mirror, paying attention to the rotation of your hips. As you block, imagine you're using your entire body, from head to toe, to generate power and protection."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "shoulder",
+    "error_type": "none",
+    "topic": "Correct Guard Position",
+    "text": "When performing the downward block, it's essential to maintain a correct guard position, with your shoulders relaxed and down. Imagine a straight line from the top of your head to your hips, with your shoulders slightly rolled forward. This guard position helps to protect your face and neck, while also generating power and speed in your block."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "shoulder",
+    "error_type": "too high",
+    "topic": "Fixing Raised Shoulders",
+    "text": "If you find your shoulders are too high, it can cause tension and strain in your neck and shoulders. To fix this, focus on relaxing your shoulders, keeping them down and away from your ears. Practice the block in a slow, controlled manner, paying attention to the sensation in your shoulders and neck. As you block, imagine you're using your entire body, from head to toe, to generate power and protection."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "stance",
+    "error_type": "none",
+    "topic": "Proper Stance and Balance",
+    "text": "During the downward block, your stance should be wide and stable, with your weight evenly distributed between both legs. Keep your ankles flexible and your knees slightly bent, with your back straight and your core engaged. This stance provides balance and stability, allowing you to generate power and speed in your block."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "stance",
+    "error_type": "too narrow",
+    "topic": "Fixing an Unstable Stance",
+    "text": "If you find your stance is too narrow, it can cause you to lose balance and generate inadequate power. To fix this, focus on widening your stance, keeping your feet shoulder-width apart. Practice the block in a slow, controlled manner, paying attention to the sensation in your legs and ankles. As you block, imagine you're using your entire body, from head to toe, to generate power and protection."
+  }
+]

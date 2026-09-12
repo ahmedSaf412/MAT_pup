@@ -46,7 +46,9 @@ export function AuthProvider({ children }) {
     } catch (error) {
       return {
         success: false,
-        error: error.response?.data?.detail || 'Login failed'
+        error: error.friendlyMessage
+          || error.response?.data?.detail
+          || 'Login failed — check the backend is running.',
       };
     }
   }, []);
@@ -103,7 +105,7 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated: !!token,
     isCoach: user?.role === 'coach',
-    isTrainer: user?.role === 'trainer' || user?.role === 'user',
+    isTrainee: user?.role === 'trainer' || user?.role === 'trainee' || user?.role === 'user',
     login,
     register,
     logout,

@@ -1,6 +1,7 @@
 # backend/app/models/__init__.py
-# DO NOT import from app.database here (causes circular import)
+# Import every model so Base.metadata is fully populated before create_all()
 
-from . import user      # noqa: F401
-from . import session   # noqa: F401
-from . import move      # noqa: F401
+from app.models.user    import User, Trainee, Coach       # noqa: F401
+from app.models.move    import MoveReference              # noqa: F401
+from app.models.session import Session, Detection, Recording  # noqa: F401
+from app.models.rag     import RagDocument, RagQuery, Feedback  # noqa: F401

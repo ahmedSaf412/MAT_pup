@@ -1,0 +1,1 @@
+﻿Screenshots are saved here when you press S during a session.

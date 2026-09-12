@@ -1,6 +1,8 @@
 # Keep large data local - download from README links drive or hugging face
 app/data/
 backend/app/data/
+# ↑ includes Animation/ (reference .mov + .json) and Examplers/ (.mp4 demos)
+
 
 
 # Node
@@ -45,6 +47,9 @@ MANIFEST
 .env.development.local
 .env.test.local
 .env.production.local
+# Allow the example template — it has placeholder values, not real secrets
+!.env.example
+!backend/.env.example
 .venv
 venv/
 ENV/
@@ -55,6 +60,7 @@ venv.bak/
 *.db
 *.sqlite
 *.sqlite3
+backend/app/rag/data/chroma_db/
 
 # ML Models (download separately — see README)
 *.keras
@@ -62,6 +68,21 @@ venv.bak/
 *.pkl
 *.pt
 *.pth
+
+# Ignore all training plots and metrics
+backend/app/models/*.png
+backend/app/models/Results/*.png
+backend/app/models/Results/*.csv
+
+# Ignore all generated run directories
+backend/app/models/Results/Run_*/
+
+# EXCEPT the current active run directory
+!backend/app/models/Results/Run_May21_2217/
+# But STILL ignore large files inside the active directory
+backend/app/models/Results/Run_May21_2217/*.keras
+backend/app/models/Results/Run_May21_2217/*.png
+backend/app/models/Results/Run_May21_2217/*.csv
 
 # Raw video / animation data
 *.mov

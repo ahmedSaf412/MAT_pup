@@ -21,11 +21,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  /* Never let this section grow past the viewport — keeps camera visible */
-  overflow: hidden;
+  /* Allow this section to scroll so the AI feedback panel is visible */
+  overflow-y: auto;
   position: sticky;
   top: var(--space-lg);
   max-height: calc(100vh - var(--navbar-height) - var(--space-2xl));
+  padding-right: 10px; /* space for scrollbar */
 }
 
 .panelSection {
@@ -118,19 +119,29 @@
 .videoContainer {
   position: relative;
   width: 100%;
-  flex: 1;
-  min-height: 300px;
-  background: var(--bg-secondary);
+  min-height: 280px;
+  background: #000;          /* black background = no gray bars */
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--border-glass);
 }
 
+/* Default video element — uploaded file (no mirror, preserve AR) */
 .video {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;              /* video sets its own height from intrinsic ratio */
+  max-height: 70vh;          /* don't overflow viewport */
+  object-fit: contain;
+  background: #000;
+}
+
+/* Live camera feed — mirror so user sees themselves naturally */
+.video.mirrored {
   transform: scaleX(-1);
+  object-fit: cover;
+  height: 480px;             /* fixed height for webcam (always 640×480) */
+  max-height: 70vh;
 }
 
 .videoPlaceholder {

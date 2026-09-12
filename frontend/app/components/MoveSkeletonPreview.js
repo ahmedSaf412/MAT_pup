@@ -144,8 +144,8 @@ function SkeletonCanvas3D({ frontFrames, sideFrames, fps }) {
       const frontLms = frontFrames?.[fi] || null;
       const sideLms  = sideFrames?.[fi % (sideFrames?.length || 1)] || null;
 
-      drawPanel(ctx, frontLms, rotFront, CX_LEFT,  CY, SXYZ * 0.48, FOCAL, 0,    HALF, 'FRONT VIEW');
-      drawPanel(ctx, sideLms,  rotSide,  CX_RIGHT, CY, SXYZ * 0.48, FOCAL, HALF, W,    'SIDE VIEW');
+      drawPanel(ctx, frontLms, rotFront, CX_LEFT,  CY, SXYZ * 1.0, FOCAL, 0,    HALF, 'FRONT VIEW');
+      drawPanel(ctx, sideLms,  rotSide,  CX_RIGHT, CY, SXYZ * 1.0, FOCAL, HALF, W,    'SIDE VIEW');
 
       // Loading states per panel
       const showMsg = (txt, cx, clipL, clipR) => {

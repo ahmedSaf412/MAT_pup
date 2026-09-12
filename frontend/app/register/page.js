@@ -11,7 +11,7 @@ const BELT_LEVELS = ['white', 'yellow', 'orange', 'green', 'blue', 'brown', 'bla
 export default function RegisterPage() {
   const router = useRouter();
   const { register, demoLogin } = useAuth();
-  const [role, setRole] = useState('trainer');
+  const [role, setRole] = useState('trainee');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -54,12 +54,12 @@ export default function RegisterPage() {
         {/* Role Selector */}
         <div className={styles.roleSelector}>
           <div
-            className={`${styles.roleCard} ${role === 'trainer' ? styles.active : ''}`}
-            onClick={() => setRole('trainer')}
-            id="role-trainer"
+            className={`${styles.roleCard} ${role === 'trainee' ? styles.active : ''}`}
+            onClick={() => setRole('trainee')}
+            id="role-trainee"
           >
             <span className={styles.roleCardIcon}>🥋</span>
-            <div className={styles.roleCardTitle}>Trainer</div>
+            <div className={styles.roleCardTitle}>Trainee</div>
             <div className={styles.roleCardDesc}>Practice & get AI feedback</div>
           </div>
           <div
@@ -114,7 +114,7 @@ export default function RegisterPage() {
             />
           </div>
 
-          {role === 'trainer' && (
+          {role === 'trainee' && (
             <div className="form-group">
               <label className="form-label" htmlFor="reg-belt">Belt Level</label>
               <select
@@ -138,7 +138,7 @@ export default function RegisterPage() {
             disabled={loading}
             id="register-submit"
           >
-            {loading ? 'Creating account...' : `Register as ${role === 'coach' ? 'Coach' : 'Trainer'}`}
+            {loading ? 'Creating account...' : `Register as ${role === 'coach' ? 'Coach' : 'Trainee'}`}
           </button>
         </form>
 
@@ -149,10 +149,10 @@ export default function RegisterPage() {
         <div className={styles.demoButtons}>
           <button
             className={`btn btn-outline btn-sm ${styles.demoBtn}`}
-            onClick={() => handleDemo('trainer')}
-            id="demo-trainer-reg"
+            onClick={() => handleDemo('trainee')}
+            id="demo-trainee-reg"
           >
-            🥋 Demo as Trainer
+            🥋 Demo as Trainee
           </button>
           <button
             className={`btn btn-outline btn-sm ${styles.demoBtn}`}

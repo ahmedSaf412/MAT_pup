@@ -1,0 +1,20 @@
+# ── Node modules (reinstalled fresh inside the Docker image) ──────────────────
+node_modules/
+
+# ── Next.js build cache (rebuilt inside Docker) ──────────────────────────────
+.next/
+out/
+
+# ── Environment files (injected via docker-compose) ──────────────────────────
+.env
+.env*.local
+.env.development
+.env.production
+
+# ── OS files ──────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+.git/
+.gitignore

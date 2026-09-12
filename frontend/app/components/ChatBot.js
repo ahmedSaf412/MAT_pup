@@ -2,70 +2,56 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePose } from '../context/PoseContext';
+import api from '../services/api';
 import styles from './ChatBot.module.css';
 
-const TRAINER_SUGGESTIONS = [
+// ── Phrases that trigger live form analysis (DTW feedback) ─────────────────
+const FORM_ANALYSIS_TRIGGERS = [
+  'analyze my form',
+  'analyze my current form',
+  'check my form',
+  'review my form',
+  'how is my form',
+  'what am i doing wrong',
+  'correct my form',
+  'give me feedback',
+  'rate my form',
+];
+
+const TRAINEE_SUGGESTIONS = [
+  "Analyze my form",
   "How do I perform a front kick correctly?",
-  "What should my stance look like for a roundhouse kick?",
-  "How can I improve my balance during kicks?",
   "What are common mistakes in a reverse punch?",
+  "What should my stance look like for Gedan Barai?",
 ];
 
 const COACH_SUGGESTIONS = [
-  "Analyze this trainee's kick technique",
-  "What correction pattern do you see?",
-  "Suggest a training plan for hip flexibility",
+  "Analyze common errors for the front kick",
+  "What correction pattern do you see for gyaku zuki?",
   "How to fix consistent guard dropping?",
+  "Tips for improving hip rotation in mae geri?",
 ];
-
-// Mock response generator
-function generateBotResponse(message, isCoach) {
-  const lower = message.toLowerCase();
-
-  if (isCoach) {
-    if (lower.includes('analyze') || lower.includes('technique')) {
-      return "Based on the pose data, the trainee shows consistent hip rotation deficit of ~15°. Recommend focusing on hip flexibility drills and slow-motion practice of the full rotation arc. The guard hand position has improved by 23% since last session.";
-    }
-    if (lower.includes('correction') || lower.includes('pattern')) {
-      return "Common correction patterns for this trainee:\n\n🔴 Guard dropping during kicks (78% of sessions)\n🟡 Incomplete hip rotation (65%)\n🟢 Stance width improving (was 45%, now 82% correct)\n\nRecommend: 3 sets of guard awareness drills before each session.";
-    }
-    if (lower.includes('plan') || lower.includes('flexibility')) {
-      return "Suggested Training Plan:\n\n📋 Week 1-2: Dynamic stretching focus\n📋 Week 3-4: Slow technique drills with pause at full extension\n📋 Week 5-6: Speed building with correct form\n\nInclude hip circles and leg swings as warm-up every session.";
-    }
-    return "As a coaching assistant, I can help you analyze trainee performance, identify correction patterns, and suggest training plans. What would you like to focus on?";
-  }
-
-  // Trainer responses
-  if (lower.includes('front kick') || lower.includes('kick')) {
-    return "**Front Kick (Mae Geri) Tips:**\n\n1️⃣ Start in fighting stance, weight slightly back\n2️⃣ Lift your knee to waist height first\n3️⃣ Snap your foot forward, striking with the ball of the foot\n4️⃣ Retract quickly to knee-up position\n5️⃣ Return to stance\n\n💡 Key: Chamber the knee HIGH before extending!";
-  }
-  if (lower.includes('stance') || lower.includes('roundhouse')) {
-    return "**Roundhouse Kick Stance:**\n\n🦶 Feet shoulder-width apart\n🔄 Pivot on the supporting foot (heel turns toward target)\n📐 Hips rotate fully through the kick\n🤜 Keep guard hands up near chin\n\n⚠️ Most common error: Not pivoting the support foot enough!";
-  }
-  if (lower.includes('balance')) {
-    return "**Balance Improvement Drills:**\n\n1. Single-leg stance holds (30 sec each side)\n2. Slow-motion front kicks with 3-second pause at extension\n3. Walking stance transitions\n4. Eyes-closed balance practice\n\n🎯 Practice 5 minutes daily for noticeable improvement in 2 weeks!";
-  }
-  return "I'm your AI training assistant! I can help with:\n\n🥋 Technique explanations and tips\n📐 Form and stance guidance\n🏋️ Training recommendations\n🔧 Correction explanations\n\nAsk me anything about martial arts techniques!";
-}
 
 export default function ChatBot() {
   const { isCoach } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
+  const { currentMoveId, currentLandmarkFrames } = usePose();
+  const [isOpen,    setIsOpen]    = useState(false);
+  const [messages,  setMessages]  = useState([
     {
       id: 'welcome',
       role: 'bot',
       text: isCoach
-        ? "Hello Coach! I'm your AI coaching assistant. I can help analyze trainee performance, suggest corrections, and create training plans."
-        : "Hello! I'm your AI martial arts assistant. Ask me about techniques, corrections, or training tips! 🥋",
+        ? "Hello Coach! I'm your AI coaching assistant powered by Groq LLaMA-3. Ask me about trainee technique, corrections, or training plans. 🏆"
+        : "Hello! I'm your AI Karate Sensei powered by Groq LLaMA-3. Ask me anything about technique, form, or say \"Analyze my form\" after training for live feedback! 🥋",
     },
   ]);
-  const [input, setInput] = useState('');
+  const [input,    setInput]    = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+  const inputRef       = useRef(null);
 
-  const suggestions = isCoach ? COACH_SUGGESTIONS : TRAINER_SUGGESTIONS;
+  const suggestions = isCoach ? COACH_SUGGESTIONS : TRAINEE_SUGGESTIONS;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -75,19 +61,57 @@ export default function ChatBot() {
     if (!text.trim()) return;
 
     const userMsg = { id: Date.now(), role: 'user', text: text.trim() };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI response time
-    setTimeout(() => {
-      const response = generateBotResponse(text, isCoach);
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now() + 1, role: 'bot', text: response },
-      ]);
+    try {
+      const lower = text.toLowerCase();
+      const isFormRequest = FORM_ANALYSIS_TRIGGERS.some(t => lower.includes(t));
+
+      if (isFormRequest) {
+        // ── Live DTW form analysis ─────────────────────────────────────────
+        if (!currentMoveId || !currentLandmarkFrames || currentLandmarkFrames.length < 5) {
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1, role: 'bot',
+            text: "I don't have your pose data yet! Please start training, perform a move, and then ask me to analyze your form. 🥋",
+          }]);
+          return;
+        }
+
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, role: 'bot',
+          text: `🔍 Analyzing your ${currentMoveId.replace('_', ' ')} using DTW comparison…`,
+        }]);
+
+        const res = await api.post('/api/rag/feedback', {
+          move_id: currentMoveId,
+          frames:  currentLandmarkFrames,   // all 30 landmark frames
+        });
+
+        const feedback = res.data?.feedback || "I couldn't generate feedback. Please try again.";
+        setMessages(prev => [
+          ...prev.slice(0, -1),            // remove the "analyzing…" message
+          { id: Date.now() + 2, role: 'bot', text: feedback },
+        ]);
+      } else {
+        // ── General RAG chat ───────────────────────────────────────────────
+        const res = await api.post('/api/rag/chat', {
+          message: text.trim(),
+          move_id: currentMoveId || null,
+        });
+
+        const botText = res.data?.response || "I couldn't generate a response. Please try again.";
+        setMessages(prev => [...prev, { id: Date.now() + 1, role: 'bot', text: botText }]);
+      }
+    } catch (err) {
+      const errMsg = err.response?.status === 500
+        ? "The AI coach encountered an error. Check that the backend is running."
+        : "Network error — check that the backend server is running.";
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'bot', text: errMsg }]);
+    } finally {
       setIsTyping(false);
-    }, 800 + Math.random() * 1200);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -97,7 +121,7 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* Floating Toggle Button */}
+      {/* Floating toggle button */}
       <button
         className={`${styles.toggleBtn} ${isOpen ? styles.open : ''}`}
         onClick={() => {
@@ -110,7 +134,7 @@ export default function ChatBot() {
         {isOpen ? '✕' : '🤖'}
       </button>
 
-      {/* Chat Panel */}
+      {/* Chat panel */}
       {isOpen && (
         <div className={styles.chatPanel}>
           {/* Header */}
@@ -122,7 +146,17 @@ export default function ChatBot() {
                   {isCoach ? 'Coach Assistant' : 'Training Assistant'}
                 </div>
                 <div className={styles.headerStatus}>
-                  <span className={styles.statusDot} /> AI Powered
+                  <span className={styles.statusDot} /> Groq LLaMA-3
+                  {currentMoveId && (
+                    <span style={{ marginLeft: 6, opacity: 0.6, fontSize: '0.7rem' }}>
+                      · {currentMoveId.replace('_', ' ')}
+                    </span>
+                  )}
+                  {currentLandmarkFrames && (
+                    <span style={{ marginLeft: 4, color: '#4ade80', fontSize: '0.7rem' }}>
+                      ● ready
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -133,13 +167,9 @@ export default function ChatBot() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`${styles.message} ${
-                  msg.role === 'user' ? styles.userMsg : styles.botMsg
-                }`}
+                className={`${styles.message} ${msg.role === 'user' ? styles.userMsg : styles.botMsg}`}
               >
-                {msg.role === 'bot' && (
-                  <div className={styles.botAvatar}>🤖</div>
-                )}
+                {msg.role === 'bot' && <div className={styles.botAvatar}>🤖</div>}
                 <div className={styles.msgBubble}>
                   {msg.text.split('\n').map((line, i) => (
                     <p key={i}>{line}</p>
@@ -182,13 +212,18 @@ export default function ChatBot() {
               className={styles.chatInput}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isCoach ? "Ask about trainee analysis..." : "Ask about techniques..."}
+              placeholder={
+                currentLandmarkFrames
+                  ? "Ask anything or say 'Analyze my form'…"
+                  : isCoach ? "Ask about trainee analysis…" : "Ask about techniques…"
+              }
               id="chatbot-input"
+              disabled={isTyping}
             />
             <button
               type="submit"
               className={styles.sendBtn}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isTyping}
               id="chatbot-send"
             >
               ➤

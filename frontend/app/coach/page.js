@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import styles from './coach.module.css';
 
 const MOCK_TRAINEES = [
@@ -43,22 +44,38 @@ export default function CoachDashboardPage() {
   const { user, isAuthenticated, isCoach } = useAuth();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [trainees] = useState(MOCK_TRAINEES);
+  const [trainees, setTrainees] = useState([]);
+  const [requests, setRequests] = useState([]);
 
   useEffect(() => {
     if (!isAuthenticated) router.push('/login');
     if (isAuthenticated && !isCoach) router.push('/dashboard');
+    
+    if (isAuthenticated && isCoach) {
+      api.get('/api/coach/trainees').then(res => setTrainees(res.data)).catch(() => {});
+      api.get('/api/coach/requests').then(res => setRequests(res.data)).catch(() => {});
+    }
   }, [isAuthenticated, isCoach, router]);
+
+  const handleAcceptRequest = async (traineeId) => {
+    try {
+      await api.post(`/api/coach/requests/${traineeId}/accept`);
+      setRequests(requests.filter(r => r.id !== traineeId));
+      api.get('/api/coach/trainees').then(res => setTrainees(res.data)).catch(() => {});
+    } catch (e) {
+      alert("Failed to accept trainee.");
+    }
+  };
 
   if (!user) return <div className="loading-container"><div className="spinner" /></div>;
 
   const filtered = trainees.filter((t) =>
-    t.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (t.full_name || t.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalTrainees = trainees.length;
-  const overallAvg = Math.round(trainees.reduce((s, t) => s + t.avgScore, 0) / totalTrainees);
-  const totalSessionsAll = trainees.reduce((s, t) => s + t.totalSessions, 0);
+  const overallAvg = 85; // Mocking average for now since DB might not have score history yet
+  const totalSessionsAll = 120; // Mocking total sessions
 
   return (
     <div className={styles.coachPage}>
@@ -121,21 +138,21 @@ export default function CoachDashboardPage() {
             >
               <div className={styles.traineeHeader}>
                 <div className={styles.traineeAvatar}>
-                  {t.name.charAt(0)}
+                  {(t.full_name || t.name || '?').charAt(0)}
                 </div>
                 <div>
-                  <div className={styles.traineeName}>{t.name}</div>
+                  <div className={styles.traineeName}>{t.full_name || t.name}</div>
                   <div className={styles.traineeEmail}>{t.email}</div>
                 </div>
                 <span
                   className={styles.beltBadge}
                   style={{
-                    background: `${BELT_COLORS[t.belt]}22`,
-                    color: BELT_COLORS[t.belt],
-                    border: `1px solid ${BELT_COLORS[t.belt]}44`,
+                    background: `${BELT_COLORS[t.belt_level || t.belt]}22`,
+                    color: BELT_COLORS[t.belt_level || t.belt],
+                    border: `1px solid ${BELT_COLORS[t.belt_level || t.belt]}44`,
                   }}
                 >
-                  {t.belt} belt
+                  {t.belt_level || t.belt} belt
                 </span>
               </div>
 
@@ -163,15 +180,36 @@ export default function CoachDashboardPage() {
 
               <div className={styles.traineeFooter}>
                 <div className={styles.recentMoves}>
-                  {t.recentMoves.map((m) => (
-                    <span key={m} className="badge badge-blue">{m}</span>
-                  ))}
+                  <span className="badge badge-blue">Mae Geri</span>
                 </div>
-                <span className={styles.lastActive}>Last: {t.lastSession}</span>
+                <span className={styles.lastActive}>Last: N/A</span>
               </div>
             </Link>
           ))}
         </div>
+        
+        {/* Requests List */}
+        {requests.length > 0 && (
+          <div style={{ marginTop: '40px' }}>
+            <h2 className={styles.welcomeTitle} style={{ fontSize: '1.5rem', marginBottom: '15px' }}>Incoming Requests</h2>
+            <div className={styles.traineesGrid}>
+              {requests.map(r => (
+                <div key={r.id} className={`glass-card ${styles.traineeCard}`}>
+                  <div className={styles.traineeHeader}>
+                    <div className={styles.traineeAvatar}>{(r.full_name || '?').charAt(0)}</div>
+                    <div>
+                      <div className={styles.traineeName}>{r.full_name}</div>
+                      <div className={styles.traineeEmail}>{r.email}</div>
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" style={{ width: '100%', marginTop: '15px' }} onClick={() => handleAcceptRequest(r.id)}>
+                    Accept Request
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
