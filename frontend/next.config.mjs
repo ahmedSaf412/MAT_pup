@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ── Docker / Production ────────────────────────────────────────────────────
+  // standalone mode bundles everything needed to run with just `node server.js`
+  // This is required by the frontend Dockerfile CMD ["node", "server.js"]
+  // Without this, the production container would need `next` installed globally.
+  output: 'standalone',
+
   // Fix Turbopack "multiple lockfiles" root detection warning.
   turbopack: {
     root: import.meta.dirname,

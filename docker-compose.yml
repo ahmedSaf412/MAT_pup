@@ -1,0 +1,109 @@
+# =============================================================================
+# docker-compose.yml  (project root)
+# =============================================================================
+#
+# Defines and orchestrates 3 services:
+#
+#   db        — PostgreSQL 17 with pgvector extension (official image)
+#   backend   — FastAPI Python app (built from ./backend/Dockerfile)
+#   frontend  — Next.js app       (built from ./frontend/Dockerfile)
+#
+# Variables like ${DB_PASSWORD} are read from a .env file in the same directory
+# as this file (the project root). See .env.example for the template.
+# =============================================================================
+
+services:
+
+  # ── PostgreSQL + pgvector ─────────────────────────────────────────────────
+  db:
+    # pgvector/pgvector:pg17 = official PostgreSQL 17 image with pgvector
+    # already installed. This replaces the manual pgvector zip setup from
+    # the old README. No extension install needed — it's built into the image.
+    image: pgvector/pgvector:pg17
+    container_name: martial_arts_db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}   # reads from root .env
+      POSTGRES_DB: martial_arts_db
+
+    volumes:
+      # Named volume: PostgreSQL data persists across `docker compose down`
+      # Only `docker compose down -v` will wipe it.
+      - postgres_data:/var/lib/postgresql/data
+
+    # Healthcheck: other services use `depends_on: condition: service_healthy`
+    # so they wait for Postgres to be truly ready before starting.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ── FastAPI Backend ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend        # Docker build context = backend/ folder
+      dockerfile: Dockerfile    # uses backend/Dockerfile
+
+    container_name: martial_arts_backend
+    restart: unless-stopped
+
+    # Don't start until db passes its healthcheck
+    depends_on:
+      db:
+        condition: service_healthy
+
+    environment:
+      # db hostname = "db" (the service name above). Inside Docker's network,
+      # containers reach each other by service name, not localhost.
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-changeme}@db:5432/martial_arts_db
+
+      SECRET_KEY:                    ${SECRET_KEY:-change-this-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES:   ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      GROQ_API_KEY:                  ${GROQ_API_KEY:-}
+      FRONTEND_URL:                  http://localhost:3000
+
+    volumes:
+      # User-uploaded recordings persist across restarts.
+      # Maps the container's /app/uploads/ to a Docker-managed volume.
+      - uploads_data:/app/uploads
+
+    ports:
+      # host:container — exposes backend on your machine's port 8000
+      - "8000:8000"
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s   # give TensorFlow + model loading time before first check
+      retries: 3
+
+
+  # ── Next.js Frontend ─────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: martial_arts_frontend
+    restart: unless-stopped
+
+    # Backend must be up before frontend starts (so API calls don't fail on boot)
+    depends_on:
+      - backend
+
+    ports:
+      - "3000:3000"
+
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+# Docker manages these. They survive `docker compose down`.
+# Use `docker compose down -v` to delete them (fresh start).
+volumes:
+  postgres_data:    # PostgreSQL database files
+  uploads_data:     # User-uploaded video recordings

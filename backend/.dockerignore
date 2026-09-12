@@ -1,0 +1,49 @@
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyc
+.Python
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+cvEnv/
+
+# ── Secrets (injected via docker-compose environment:) ────────────────────────
+.env
+.env.*
+
+# ── SQLite fallback DB (Docker uses PostgreSQL) ───────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Large training-only data — NOT used at runtime ────────────────────────────
+app/data/karate_coords.csv
+app/data/karate_normalized_base*
+app/data/karate_angles.csv
+
+# ── Old model training runs — only Production_Best/ is loaded by the code ────
+app/models/Results/Run_*/
+app/models/Results/thesis_results/
+app/models/Analysis/
+app/models/*.ipynb
+
+# ── One-off migration / rename scripts (already ran, not needed in container) ─
+migrate_db.py
+rename_mads.py
+implementation_plan.md
+
+# ── Scratch / temp files ───────────────────────────────────────────────────────
+scratch/
+
+# ── Uploads are a runtime volume — not baked into the image ──────────────────
+uploads/
+
+# ── MADS standalone prototype (separate from the app) ────────────────────────
+MADS_correction/
+
+# ── Git metadata ───────────────────────────────────────────────────────────────
+.git/
+.gitignore

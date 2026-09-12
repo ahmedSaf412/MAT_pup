@@ -47,6 +47,9 @@ MANIFEST
 .env.development.local
 .env.test.local
 .env.production.local
+# Allow the example template — it has placeholder values, not real secrets
+!.env.example
+!backend/.env.example
 .venv
 venv/
 ENV/
