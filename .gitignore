@@ -1,7 +1,13 @@
 # Keep large data local - download from README links drive or hugging face
 app/data/
 backend/app/data/
-# ↑ includes Animation/ (reference .mov + .json) and Examplers/ (.mp4 demos)
+# ↑ includes Animation/ (reference .mov + .json), Examplers/ (.mp4 demos), and large CSVs
+# Allow the scripts/ subfolder — it contains Python source code, not data
+!backend/app/data/scripts/
+!backend/app/data/scripts/**
+
+# Academic folder — thesis, papers, PDFs → stored on Google Drive, not git
+Academic/
 
 
 
