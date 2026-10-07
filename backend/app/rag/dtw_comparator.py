@@ -49,6 +49,7 @@ ANDREW_ANGLE_NAMES = [
     "right_hip",
     "left_hip",
     "spine_lean",
+    "hip_rotation",
 ]
 N_ANDREW_JOINTS = len(ANDREW_ANGLE_NAMES)  # 9
 
@@ -203,6 +204,22 @@ def compute_mads_angles(landmarks: list) -> list:
         angle_3d( 0, 23, 25),  # spine_lean
     ]
 
+    def hip_rotation_ratio() -> float:
+        if not landmarks or len(landmarks) < 33: return 0.0
+        l_hip, r_hip = landmarks[23], landmarks[24]
+        z_diff = abs(l_hip.get("z",0) - r_hip.get("z",0))
+        width = math.sqrt(
+            (l_hip.get("x",0) - r_hip.get("x",0))**2 + 
+            (l_hip.get("y",0) - r_hip.get("y",0))**2 + 
+            (l_hip.get("z",0) - r_hip.get("z",0))**2
+        )
+        if width < 1e-9: return 0.0
+        # Multiply by 90 to simulate degrees (0=square, 90=sideways)
+        return (z_diff / width) * 90.0
+
+    angles.append(hip_rotation_ratio())
+    return angles
+
 
 # ── DTW core ──────────────────────────────────────────────────────────────────
 
@@ -349,22 +366,32 @@ def compare_with_dtw(move_id: str, user_landmark_frames: list) -> list[dict]:
     ref_aligned  = ref_seq[ [p[1] for p in path]]
     abs_diff     = np.abs(user_aligned - ref_aligned)
 
-    mean_diff = np.mean(abs_diff, axis=0)   # (K,)
-    user_mean = np.mean(user_aligned, axis=0)
-    ref_mean  = np.mean(ref_aligned,  axis=0)
-
+    # Use 90th percentile to catch peak errors while ignoring 1-frame MediaPipe glitches
+    peak_diff = np.percentile(abs_diff, 90, axis=0)   # (K,)
+    
+    # Find the frame index where the error is closest to this 90th percentile value
+    peak_frame_indices = np.argmin(np.abs(abs_diff - peak_diff), axis=0)
+    
+    # Get the actual angles at that peak error moment
     joint_names = ANDREW_ANGLE_NAMES if mads_mode else ANGLE_NAMES
+    user_peak = np.array([user_aligned[peak_frame_indices[k], k] for k in range(len(joint_names))])
+    ref_peak  = np.array([ref_aligned[peak_frame_indices[k], k]  for k in range(len(joint_names))])
+
     thresholds  = _load_thresholds()
 
     errors = []
     for k, joint_name in enumerate(joint_names):
-        md = float(mean_diff[k])
+        md = float(peak_diff[k])
         if md < ERROR_THRESHOLD:
             continue
 
-        um = float(user_mean[k])
-        rm = float(ref_mean[k])
-        direction = "too extended/large" if um > rm else "too bent/small"
+        um = float(user_peak[k])
+        rm = float(ref_peak[k])
+        
+        if joint_name == "hip_rotation":
+            direction = "too sideways (Hanmi)" if um > rm else "too square (Shomen)"
+        else:
+            direction = "too extended/large" if um > rm else "too bent/small"
 
         # Enrich with MADS tight/loose bands if available
         bands = thresholds.get(joint_name, {})
@@ -372,7 +399,7 @@ def compare_with_dtw(move_id: str, user_landmark_frames: list) -> list[dict]:
             lo_l, hi_l = bands.get("loose", [rm - 15, rm + 15])
             target_range = f"{round(lo_l, 0):.0f}°–{round(hi_l, 0):.0f}°"
             query = (
-                f"User's {joint_name} is {md:.1f}° off from the master "
+                f"User's {joint_name} is {md:.1f}° off from the master at the peak execution "
                 f"during {move_id} ({direction}). "
                 f"Target: {rm:.1f}° (acceptable range: {target_range})."
             )
@@ -387,7 +414,7 @@ def compare_with_dtw(move_id: str, user_landmark_frames: list) -> list[dict]:
         else:
             target_range = f"{round(rm - 15, 0):.0f}°–{round(rm + 15, 0):.0f}°"
             query        = (
-                f"User's {joint_name} is {md:.1f}° off from the master "
+                f"User's {joint_name} is {md:.1f}° off from the master at the peak execution "
                 f"during {move_id} ({direction})."
             )
             status = "out" if md > 25 else "loose"

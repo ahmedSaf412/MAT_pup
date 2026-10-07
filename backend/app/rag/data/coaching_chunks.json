@@ -215,5 +215,26 @@
     "error_type": "too narrow",
     "topic": "Fixing an Unstable Stance",
     "text": "If you find your stance is too narrow, it can cause you to lose balance and generate inadequate power. To fix this, focus on widening your stance, keeping your feet shoulder-width apart. Practice the block in a slow, controlled manner, paying attention to the sensation in your legs and ankles. As you block, imagine you're using your entire body, from head to toe, to generate power and protection."
+  },
+  {
+    "move": "gyaku_zuki",
+    "joint": "hip_rotation",
+    "error_type": "too sideways (Hanmi)",
+    "topic": "Squaring the Hips (Shomen) for Power",
+    "text": "If your hips are turned sideways (Hanmi) during the impact of your reverse punch, it will lack driving power. For Gyaku Zuki, your hips must be squared completely to the front (Shomen) to push your body weight into the target. Focus on driving your back hip forward forcefully as your arm extends."
+  },
+  {
+    "move": "gedan_barai",
+    "joint": "hip_rotation",
+    "error_type": "too square (Shomen)",
+    "topic": "Opening the Hips (Hanmi) for Torque",
+    "text": "If your hips are squared to the front (Shomen) during a downward block, your body is exposed and the block lacks rotational torque. Gedan Barai requires a half-facing stance (Hanmi). Focus on violently pulling your back hip away from the target as your blocking arm snaps down. This sharp rotation generates the block's power."
+  },
+  {
+    "move": "mae_geri",
+    "joint": "hip_rotation",
+    "error_type": "too sideways (Hanmi)",
+    "topic": "Squaring Hips for Forward Penetration",
+    "text": "If you kick with your hips turned sideways, your Mae Geri will lack forward penetration and may turn into a sloppy roundhouse kick. Keep your hips squared to the front (Shomen) throughout the entire kicking motion. Push both hips forward simultaneously to drive your foot deeply into the target."
   }
 ]
