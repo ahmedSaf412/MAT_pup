@@ -82,6 +82,8 @@ backend/app/models/Results/*.csv
 
 # Ignore all generated run directories
 backend/app/models/Results/Run_*/
+**/master_validation/
+master_validation/
 
 # EXCEPT the current active run directory
 !backend/app/models/Results/Run_May21_2217/
