@@ -7,17 +7,33 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / '.env', override=Tru
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
+# Model used for coaching/chat generation. Configurable via the GROQ_MODEL env
+# var because Groq deprecates model IDs over time — a retired ID (e.g. the old
+# "llama-3.3-70b-versatile") returns HTTP 404 and silently degrades every call
+# to the offline fallback. Override without code change if Groq renames again:
+#   GROQ_MODEL=llama-3.3-70b-versatile   (or any current Groq chat model)
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+
 # Lazy-initialize client so startup never crashes even if key is missing
 _groq_client = None
 
 def _get_client():
-    global _groq_client
-    if _groq_client is None and GROQ_API_KEY:
-        try:
-            from groq import Groq
-            _groq_client = Groq(api_key=GROQ_API_KEY)
-        except Exception as e:
-            print(f"[llm_client] Groq client init failed: {e}")
+    """Return a Groq client, re-reading the environment on every cache miss.
+
+    Re-check (instead of only trusting the import-time GROQ_API_KEY) so callers
+    that load .env *after* this module was imported — e.g. the validation
+    notebook — still get live LLM calls rather than the offline fallback.
+    """
+    global _groq_client, GROQ_API_KEY
+    if _groq_client is None:
+        key = GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
+        if key:
+            GROQ_API_KEY = key
+            try:
+                from groq import Groq
+                _groq_client = Groq(api_key=key)
+            except Exception as e:
+                print(f"[llm_client] Groq client init failed: {e}")
     return _groq_client
 
 
@@ -84,7 +100,7 @@ Write a friendly, encouraging, and actionable response strictly based on the coa
     try:
         t0 = time.time()
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "You are a helpful and expert AI Karate coach."},
                 {"role": "user",   "content": prompt},
@@ -146,7 +162,7 @@ Answer the student's question concisely using the provided knowledge. Be friendl
 
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "You are a helpful and expert AI Karate coach."},
                 {"role": "user",   "content": prompt},
