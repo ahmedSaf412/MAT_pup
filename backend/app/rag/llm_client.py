@@ -7,12 +7,34 @@ load_dotenv(Path(__file__).resolve().parent.parent.parent / '.env', override=Tru
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-# Model used for coaching/chat generation. Configurable via the GROQ_MODEL env
-# var because Groq deprecates model IDs over time — a retired ID (e.g. the old
-# "llama-3.3-70b-versatile") returns HTTP 404 and silently degrades every call
-# to the offline fallback. Override without code change if Groq renames again:
-#   GROQ_MODEL=llama-3.3-70b-versatile   (or any current Groq chat model)
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+# Model used for coaching/chat generation. Groq retires model IDs over time —
+# llama-3.3-70b-versatile returned HTTP 404 (model_not_found) and
+# llama-3.1-70b-versatile now returns HTTP 400 (model_decommissioned), both of
+# which silently degrade every call to the offline fallback. Default is a
+# currently-supported Groq chat model; override in .env without a code change
+# if Groq renames again, e.g.:
+#   GROQ_MODEL=playai-ppio-glm-4-9b-chat
+_DEFAULT_GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+
+# Retired IDs that must never be used even if an old .env still pins them.
+_DECOMMISSIONED_MODELS = {
+    "llama-3.1-70b-versatile",
+    "llama-3.3-70b-versatile",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "gemma2-9b-it",
+}
+
+
+def _resolve_groq_model() -> str:
+    """Pick the Groq chat model: env GROQ_MODEL unless it names a retired ID."""
+    m = (os.environ.get("GROQ_MODEL") or "").strip()
+    if m and m not in _DECOMMISSIONED_MODELS:
+        return m
+    return _DEFAULT_GROQ_MODEL
+
+
+GROQ_MODEL = _resolve_groq_model()
 
 # Lazy-initialize client so startup never crashes even if key is missing
 _groq_client = None
@@ -23,8 +45,13 @@ def _get_client():
     Re-check (instead of only trusting the import-time GROQ_API_KEY) so callers
     that load .env *after* this module was imported — e.g. the validation
     notebook — still get live LLM calls rather than the offline fallback.
+    Also re-resolves GROQ_MODEL so an old cached module with a retired model ID
+    (e.g. llama-3.1-70b-versatile) does not degrade every call.
     """
-    global _groq_client, GROQ_API_KEY
+    global _groq_client, GROQ_API_KEY, GROQ_MODEL
+    # Always re-resolve the model name in case the module was imported before
+    # the env was loaded, or the model was retired after the module was cached.
+    GROQ_MODEL = _resolve_groq_model()
     if _groq_client is None:
         key = GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
         if key:
